@@ -104,4 +104,15 @@ But as you can see, the are a lot of room for improvements (IPv6, bgpd daemon fi
 
 netmap-fwd accepts any number of network interfaces which may also include vlans.
 
+Using pkt-gen, on a C2518 (quad core 1.7GHz Atom) 
+654.302285 main_thread [1620] 1.175 Mpps (1.176 Mpkts 602.256 Mbps in 1001150 usec) 3.56 avg_batch
+655.302630 main_thread [1620] 1.175 Mpps (1.175 Mpkts 601.769 Mbps in 1000345 usec) 3.55 avg_batch
+656.304142 main_thread [1620] 1.175 Mpps (1.177 Mpkts 602.478 Mbps in 1001512 usec) 3.55 avg_batch
+657.304823 main_thread [1620] 999.767 Kpps (1.000 Mpkts 512.229 Mbps in 1000681 usec) 3.53 avg_batch
+[…]
+Received 25618109 packets 1639558976 bytes 7225406 events 64 bytes each in 21.80 seconds.
+Speed: 1.175 Mpps Bandwidth: 601.568 Mbps (raw 827.156 Mbps). Average batch: 3.55 pkts
+
+FreeBSD can't do more than 233Kpps on the same hardware (single IP flow)
+
 Luiz
