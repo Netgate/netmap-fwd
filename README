@@ -1,0 +1,107 @@
+netmap-fwd was designed to require little to no setup.
+
+Consider the following case:
+
+[Test1]<---->[Router]<----->[Test2]<--->[Internet]
+
+Where:
+
+Test1:
+
+dwc0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       options=80008<VLAN_MTU,LINKSTATE>
+       ether 02:13:06:c3:52:48
+       inet 10.0.0.2 netmask 0xffffff00 broadcast 10.0.0.255
+       media: Ethernet autoselect (1000baseT <full-duplex>)
+       status: active
+       nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+
+With a default route to 10.0.0.1
+
+Test2:
+
+em0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       options=4219b<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,VLAN_HWCSUM,TSO4,WOL_MAGIC,VLAN_HWTSO>
+       ether e8:40:f2:c2:98:00
+       inet 192.168.0.10 netmask 0xffffff00 broadcast 192.168.0.255
+       nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+       media: Ethernet autoselect (1000baseT <full-duplex>)
+       status: active
+
+There is a static route to the 10.0.0.0/24 network:
+  route to: 10.0.0.0
+destination: 10.0.0.0
+      mask: 255.255.255.0
+   gateway: 192.168.0.88
+       fib: 0
+ interface: em0
+     flags: <UP,GATEWAY,DONE,STATIC>
+recvpipe  sendpipe  ssthresh  rtt,msec    mtu        weight    expire
+      0         0         0         0      1500         1         0
+
+Router:
+
+igb3: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+       ether 00:08:a2:09:5b:4b
+       inet 10.0.0.1 netmask 0xffffff00 broadcast 10.0.0.255
+       nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+       media: Ethernet autoselect (1000baseT <full-duplex>)
+       status: active
+
+igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+       ether 00:08:a2:09:5b:4d
+       inet 192.168.0.88 netmask 0xffffff00 broadcast 192.168.0.255
+       nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+       media: Ethernet autoselect (1000baseT <full-duplex>)
+       status: active
+
+With a default route to 192.168.0.10.
+
+With this setup Test1 can reach Test2 and vice-versa. Test1 can also reach the internet via Test2.
+
+With a working setup, like this one, if I want to replace the in-kernel routing of Router with netmap-fwd, all you have to do is:
+
+# ./netmap-fwd igb3 igb5 &
+[1] 5906
+igb3: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       ether: 00:08:a2:09:5b:4b
+       inet 10.0.0.1 netmask 255.255.255.0 broadcast 10.0.0.255
+switching interface igb3 to netmap mode.
+igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+       ether: 00:08:a2:09:5b:4d
+       inet 192.168.0.88 netmask 255.255.255.0 broadcast 192.168.0.255
+switching interface igb5 to netmap mode.
+
+netmap-fwd reads the interface IPs (it only works with IPv4 at this
+point) and setup everything it needs.  There is a simple CLI to check
+ARP and routes:
+
+route show
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Netif
+0.0.0.0/0          192.168.0.10       UGS          igb5
+10.0.0.0/24                           U            igb3
+10.0.0.1                              UH           igb3
+192.168.0.0/24                        U            igb5
+192.168.0.88                          UH           igb5
+arp
+? (10.0.0.2) at 02:13:06:c3:52:48 on igb3 expires 1182 seconds
+? (192.168.0.10) at e8:40:f2:c2:98:00 on igb5 expires 1181 seconds
+? (192.168.0.88) at 00:08:a2:09:5b:4d on igb5 permanent
+? (10.0.0.1) at 00:08:a2:09:5b:4b on igb3 permanent
+
+And that's all. You're ready to go.
+
+It was designed this way so
+	1) It is easy to compare netmap-fwd with in-kernel routing, 
+	2) if you kill netmap-fwd the in-kernel routing will continue to work without any change in your configuration.
+
+But as you can see, the are a lot of room for improvements (IPv6, bgpd daemon fib synchronization and a few other details).
+
+netmap-fwd accepts any number of network interfaces which may also include vlans.
+
+Luiz
