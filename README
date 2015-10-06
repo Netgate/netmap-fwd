@@ -121,6 +121,6 @@ Device under test				Network interface	Kernel forwarding	Fastforward enabled	net
 C2358 (2 core, 1.7 GHz, 4 GB RAM)		Intel I354		123 kpps		217 kpps		945 kpps
 C2758 (8 core, 2.4 GHz, 8 GB RAM)		Chelsio T520 10G	270 kpps		426 kpps		1.683 Mpps
 Xeon-D 1540 (8 core, 2 GHz, 32 GB RAM)		Intel X552 10G		439 kpps		557 kpps		2.230 Mpps
-Xeon E3-1275 (4 core, 3.5 GHz, 32 GB RAM)	Intel X520-2		1.058 Mpps		1.331 Mpps		5.053 Mpp
+Xeon E3-1275 (4 core, 3.5 GHz, 32 GB RAM)	Intel X520-2 10G	1.058 Mpps		1.331 Mpps		5.053 Mpp
 
 Luiz
