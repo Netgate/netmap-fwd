@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,11 +43,13 @@
 #include "config.h"
 #include "counters.h"
 #include "event.h"
+#include "ether.h"
 #include "if.h"
 #include "inet.h"
 #include "netmap.h"
 #include "util.h"
 
+extern int nohostring;
 extern int verbose;
 
 struct arp_head {
@@ -358,95 +360,66 @@ static int
 arp_send_reply(struct nm_if *nmif, struct ether_addr *ea, struct in_addr *src,
 	struct in_addr *dst)
 {
-	char *buf;
-	int len;
 	struct arphdr *ah;
-	struct ether_header *eh;
-	struct netmap_ring *ring;
 
-	ring = netmap_get_tx_ring(nmif);
-	if (ring == NULL) {
-		dprintf("%s: no available ring for tx.\n", __func__);
-		nmif->nm_if_txsync++;
-		pktcnt.tx_drop++;
-		return (-1);
-	}
-	buf = NETMAP_GET_BUF(ring);
-	if (buf == NULL) {
-		dprintf("%s: no available buffer for tx.\n", __func__);
-		nmif->nm_if_txsync++;
-		pktcnt.tx_drop++;
-		return (-1);
-	}
-
-	eh = (struct ether_header *)buf;
-	eh->ether_type = htons(ETHERTYPE_ARP);
-	memcpy(eh->ether_dhost, ea, sizeof(eh->ether_dhost));
-	memcpy(eh->ether_shost, LLADDR(&nmif->nm_if_dl),
-	    sizeof(eh->ether_shost));
-	len = ETHER_HDR_LEN;
-	ah = (struct arphdr *)(buf + len);
+	ah = (struct arphdr *)malloc(arphdr_len2(ETHER_ADDR_LEN,
+	    sizeof(in_addr_t)));
+	memset(ah, 0, arphdr_len2(ETHER_ADDR_LEN, sizeof(in_addr_t)));
 	ah->ar_hrd = ntohs(ARPHRD_ETHER);
 	ah->ar_pro = ntohs(ETHERTYPE_IP);
 	ah->ar_hln = ETHER_ADDR_LEN;
 	ah->ar_pln = sizeof(in_addr_t);
 	ah->ar_op = ntohs(ARPOP_REPLY);
-	len += arphdr_len(ah);
 	memcpy(ar_sha(ah), LLADDR(&nmif->nm_if_dl), ETHER_ADDR_LEN);
 	memcpy(ar_spa(ah), dst, sizeof(in_addr_t));
 	memcpy(ar_tha(ah), ea, ETHER_ADDR_LEN);
 	memcpy(ar_tpa(ah), src, sizeof(in_addr_t));
 
-	NETMAP_UPDATE_LEN(ring, len);
-
-	/* Update the current ring slot. */
-	NETMAP_RING_NEXT(ring);
-
-	pktcnt.arp_reply_sent++;
-	pktcnt.tx_pkts++;
-	nmif->nm_if_txsync++;
+	/* Send the arp packet. */
+	ether_output(nmif, dst, ea, ETHERTYPE_ARP, (char *)ah, arphdr_len(ah));
+	free(ah);
 
 	return (0);
 }
 
 int
-arp_input(struct nm_if *nmif, char *buf, int len)
+arp_input(struct nm_if *nmif, int ring, char *buf, int len)
 {
 	struct arphdr *ah;
 	struct in_addr dst, src;
 
 	if (len < sizeof(struct arphdr)) {
-		dprintf("%s: discardng the packet, too short (%d).\n",
+		DPRINTF("%s: discarding the packet, too short (%d).\n",
 		    __func__, len);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	ah = (struct arphdr *)buf;
 	if (len < arphdr_len(ah)) {
-		dprintf("%s: discardng the packet, too short (%d).\n",
+		DPRINTF("%s: discarding the packet, too short (%d).\n",
 		    __func__, len);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ntohs(ah->ar_hrd) != ARPHRD_ETHER) {
-		dprintf("%s: discarding non ethernet packet.\n", __func__);
+		DPRINTF("%s: discarding non ethernet packet.\n", __func__);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ntohs(ah->ar_pro) != ETHERTYPE_IP) {
-		dprintf("%s: unsupported protocol %#04x, discarding the packet.\n",
+		DPRINTF("%s: unsupported protocol %#04x, discarding the packet.\n",
 		    __func__, ntohs(ah->ar_pro));
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ah->ar_hln != ETHER_ADDR_LEN) {
-		dprintf("%s: unsupported hardware length (%d), discarding the packet.\n",
+		DPRINTF("%s: unsupported hardware length (%d), discarding the packet.\n",
 		    __func__, ah->ar_hln);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ah->ar_pln != sizeof(in_addr_t)) {
-		dprintf("%s: unsupported protocol length (%d), discarding the packet.\n",
+		DPRINTF("%s: unsupported protocol length (%d), discarding the packet.\n",
 		    __func__, ah->ar_pln);
 		pktcnt.arp_drop++;
 		return (-1);
@@ -455,11 +428,14 @@ arp_input(struct nm_if *nmif, char *buf, int len)
 	memcpy(&src, ar_spa(ah), sizeof(src));
 	switch (ntohs(ah->ar_op)) {
 	case ARPOP_REQUEST:
+		if (NETMAP_HOST_RING(NETMAP_PARENTIF(nmif), ring))
+			break;
 		if (!inet_our_addr(&dst))
-			return (-1);	/* Not for us. */
+			return (0);	/* Not for us. */
 		arp_add(nmif, (struct ether_addr *)ar_sha(ah), &src, 0);
-		arp_send_reply(nmif, (struct ether_addr *)ar_sha(ah), &src,
-		    &dst);
+		if (nohostring)
+			arp_send_reply(nmif, (struct ether_addr *)ar_sha(ah),
+			    &src, &dst);
 		pktcnt.arp_whohas++;
 		break;
 	case ARPOP_REPLY:
@@ -467,76 +443,47 @@ arp_input(struct nm_if *nmif, char *buf, int len)
 		pktcnt.arp_reply++;
 		break;
 	default:
-		dprintf("%s: ARP operation not supported, discarding packet.\n",
+		DPRINTF("%s: ARP operation not supported, discarding packet.\n",
 		    __func__);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 
-	return (0);
+	return (1);
 }
 
 int
 arp_request(struct nm_if *nmif, struct in_addr *dst)
 {
-	char *buf;
-	int len;
 	struct arphdr *ah;
-	struct ether_header bcast, *eh;
-	struct netmap_ring *ring;
+	struct ether_header bcast;
 	struct inet_addr *addr;
 
 	addr = inet_get_if_addr(nmif);
 	if (addr == NULL) {
-		dprintf("%s: no IP for %s\n", __func__, nmif->nm_if_name);
+		DPRINTF("%s: no IP for %s\n", __func__, nmif->nm_if_name);
 		return (-1);
 	}
-	ring = netmap_get_tx_ring(nmif);
-	if (ring == NULL) {
-		dprintf("%s: no available ring for tx.\n", __func__);
-		nmif->nm_if_txsync++;
-		pktcnt.tx_drop++;
-		return (-1);
-	}
-	buf = NETMAP_GET_BUF(ring);
-	if (buf == NULL) {
-		dprintf("%s: no available buffer for tx.\n", __func__);
-		nmif->nm_if_txsync++;
-		pktcnt.tx_drop++;
-		return (-1);
-	}
-	eh = (struct ether_header *)buf;
-	eh->ether_type = htons(ETHERTYPE_ARP);
-	memset(&bcast, 0xff, sizeof(bcast));
-	memcpy(eh->ether_dhost, &bcast, sizeof(eh->ether_dhost));
-	memcpy(eh->ether_shost, LLADDR(&nmif->nm_if_dl),
-	    sizeof(eh->ether_shost));
-	len = ETHER_HDR_LEN;
-	ah = (struct arphdr *)(buf + len);
-	ah->ar_hln = ETHER_ADDR_LEN;
-	ah->ar_pln = sizeof(in_addr_t);
-	memset(ah, 0, arphdr_len(ah));
+	ah = (struct arphdr *)malloc(arphdr_len2(ETHER_ADDR_LEN,
+	    sizeof(in_addr_t)));
+	memset(ah, 0, arphdr_len2(ETHER_ADDR_LEN, sizeof(in_addr_t)));
 	ah->ar_hrd = ntohs(ARPHRD_ETHER);
 	ah->ar_pro = ntohs(ETHERTYPE_IP);
 	ah->ar_hln = ETHER_ADDR_LEN;
 	ah->ar_pln = sizeof(in_addr_t);
 	ah->ar_op = ntohs(ARPOP_REQUEST);
-	len += arphdr_len(ah);
 	memcpy(ar_sha(ah), LLADDR(&nmif->nm_if_dl), ETHER_ADDR_LEN);
 	memcpy(ar_spa(ah), &addr->addr.sin_addr, sizeof(in_addr_t));
 	memcpy(ar_tpa(ah), dst, sizeof(in_addr_t));
 
 	/* Add an ARP entry. */
+	memset(&bcast, 0xff, sizeof(bcast));
 	arp_add(nmif, (struct ether_addr *)&bcast, dst, 0);
 
-	NETMAP_UPDATE_LEN(ring, len);
-
-	/* Update the current ring slot. */
-	NETMAP_RING_NEXT(ring);
-
-	pktcnt.arp_request++;
-	pktcnt.tx_pkts++;
-	nmif->nm_if_txsync++;
+	/* Send the arp packet. */
+	ether_output(nmif, dst, (struct ether_addr *)&bcast, ETHERTYPE_ARP,
+	    (char *)ah, arphdr_len(ah));
+	free(ah);
 
 	return (0);
 }

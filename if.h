@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,24 +29,40 @@
 #include <net/netmap.h>
 #include <net/netmap_user.h>
 
+struct nm_if_ring {
+	uint32_t		rx_rings;
+	uint32_t		tx_rings;
+};
+
+struct nm_if_vlan {
+	STAILQ_ENTRY(nm_if_vlan)	nm_if_vlan_next;
+	int			vlan_tag;
+	struct nm_if		*nmif;
+};
+
 struct nm_if {
-	STAILQ_ENTRY(nm_if)	nm_if_;
+	STAILQ_ENTRY(nm_if)	nm_if_next;
+	STAILQ_HEAD(nm_if_vlans_, nm_if_vlan) nm_if_vlans;
 	char			nm_if_name[IF_NAMESIZE];
+	char			nm_if_vparent[IF_NAMESIZE];
+	int			nm_if_caps;
 	int			nm_if_fd;
 	int			nm_if_flags;
 	int			nm_if_metric;
 	int			nm_if_mtu;
 	int			nm_if_naddrs;
 	int			nm_if_txsync;
+	int			nm_if_vtag;
+	int			nm_if_dis_caps;
 	size_t			nm_if_memsize;
 	struct event		*nm_if_ev_read;
 	struct sockaddr_dl	nm_if_dl;	/* lladdr */
 	struct netmap_if	*nm_if_ifp;
-	uint32_t		nm_if_rx_rings;
-	uint32_t		nm_if_tx_rings;
+	struct nm_if		*nm_if_parentif;
 	void			*nm_if_mem;
 };
 
 void if_init(void);
 int if_open(const char *);
 int if_netmap_txsync(void);
+struct nm_if_vlan *if_find_vlan(struct nm_if *, int);

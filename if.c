@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,9 @@
 #include <sys/types.h>
 
 #include <net/ethernet.h>
+#include <net/if.h>
 #include <net/if_types.h>
+#include <net/if_vlan_var.h>
 
 #include <netinet/in.h>
 
@@ -54,7 +56,110 @@
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
 "\20MULTICAST\22PPROMISC\23MONITOR\24STATICARP"
 
+#define	IFCAPBITS \
+"\020\1RXCSUM\2TXCSUM\3NETCONS\4VLAN_MTU\5VLAN_HWTAGGING\6JUMBO_MTU\7POLLING" \
+"\10VLAN_HWCSUM\11TSO4\12TSO6\13LRO\14WOL_UCAST\15WOL_MCAST\16WOL_MAGIC" \
+"\17TOE4\20TOE6\21VLAN_HWFILTER\23VLAN_HWTSO\24LINKSTATE\25NETMAP" \
+"\26RXCSUM_IPV6\27TXCSUM_IPV6"
+
 static STAILQ_HEAD(nm_ifs_, nm_if) nm_ifs;
+
+static int
+if_setcaps(struct nm_if *nmif, int value)
+{
+	int flags, s;
+	struct ifreq ifr;
+
+	s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (s < 0) {
+		perror("socket");
+		return (-1);
+	}
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, nmif->nm_if_name, sizeof(ifr.ifr_name));
+	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+        if (ioctl(s, SIOCGIFCAP, (caddr_t)&ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	flags = ifr.ifr_curcap;
+	if (value < 0) {
+		value = -value;
+		flags &= ~value;
+	} else
+		flags |= value;
+	flags &= ifr.ifr_reqcap;
+	ifr.ifr_reqcap = flags;
+        if (ioctl(s, SIOCSIFCAP, (caddr_t)&ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	close(s);
+
+	return (0);
+
+error:
+	close(s);
+	return (-1);
+}
+
+static int
+if_getdata(struct nm_if *nmif)
+{
+	int s;
+	struct ifreq ifr;
+	struct vlanreq vreq;
+
+	s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (s < 0) {
+		perror("socket");
+		return (-1);
+	}
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, nmif->nm_if_name, sizeof(ifr.ifr_name));
+	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	nmif->nm_if_flags = (ifr.ifr_flags & 0xffff) |
+	    (ifr.ifr_flagshigh << 16);
+        if (ioctl(s, SIOCGIFCAP, (caddr_t)&ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	nmif->nm_if_caps = ifr.ifr_curcap;
+	if (ioctl(s, SIOCGIFMETRIC, &ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	nmif->nm_if_metric = ifr.ifr_metric;
+	if (ioctl(s, SIOCGIFMTU, &ifr) == -1) {
+		perror("ioctl");
+		goto error;
+	}
+	nmif->nm_if_mtu = ifr.ifr_mtu;
+
+	/* Get vlan tag and parent. */
+	if (nmif->nm_if_dl.sdl_type == IFT_L2VLAN) {
+		memset(&vreq, 0, sizeof(vreq));
+		ifr.ifr_data = (caddr_t)&vreq;
+		if (ioctl(s, SIOCGETVLAN, &ifr) == -1)
+			goto error;
+		nmif->nm_if_vtag = vreq.vlr_tag;
+		strlcpy(nmif->nm_if_vparent, vreq.vlr_parent,
+		    sizeof(nmif->nm_if_vparent));
+	}
+	close(s);
+
+	return (0);
+
+error:
+	close(s);
+	return (-1);
+}
 
 static struct nm_if *
 if_add(const char *ifname)
@@ -66,8 +171,9 @@ if_add(const char *ifname)
 		return (NULL);
 	memset(nmif, 0, sizeof(*nmif));
 	nmif->nm_if_fd = -1;
+	STAILQ_INIT(&nmif->nm_if_vlans);
 	strlcpy(nmif->nm_if_name, ifname, sizeof(nmif->nm_if_name));
-	STAILQ_INSERT_TAIL(&nm_ifs, nmif, nm_if_);
+	STAILQ_INSERT_TAIL(&nm_ifs, nmif, nm_if_next);
 
 	return (nmif);
 }
@@ -109,7 +215,7 @@ if_add_inet_addr(struct nm_if *nmif, struct ifaddrs *ifa)
 	arp_add(nmif, (struct ether_addr *)LLADDR(&nmif->nm_if_dl),
 	    &addr->addr.sin_addr, ARP_PERMANENT);
 
-	/* Add the address to the interface list of address. */
+	/* Add the address to list of address. */
 	inet_addr_add(addr);
 	nmif->nm_if_naddrs++;
 
@@ -119,10 +225,48 @@ if_add_inet_addr(struct nm_if *nmif, struct ifaddrs *ifa)
 static void
 if_del(struct nm_if *nmif)
 {
+	struct nm_if_vlan *vlan, *vtmp;
 
-	STAILQ_REMOVE(&nm_ifs, nmif, nm_if, nm_if_);
+	STAILQ_FOREACH_SAFE(vlan, &nmif->nm_if_vlans, nm_if_vlan_next, vtmp) {
+		STAILQ_REMOVE(&nmif->nm_if_vlans, vlan, nm_if_vlan,
+		    nm_if_vlan_next);
+		free(vlan);
+	}
+	STAILQ_REMOVE(&nm_ifs, nmif, nm_if, nm_if_next);
+	if (nmif->nm_if_dis_caps != 0)
+		if_setcaps(nmif, nmif->nm_if_dis_caps);
 	inet_addr_if_free(nmif);
 	free(nmif);
+}
+
+static struct nm_if *
+if_get(const char *ifname)
+{
+	struct nm_if *nmif;
+
+	STAILQ_FOREACH(nmif, &nm_ifs, nm_if_next) {
+		if (strcmp(nmif->nm_if_name, ifname) == 0)
+			return (nmif);
+	}
+
+	return (NULL);
+}
+
+static struct nm_if_vlan *
+if_add_vlan(struct nm_if *nmif)
+{
+	struct nm_if_vlan *vlan;
+
+	vlan = (struct nm_if_vlan *)malloc(sizeof(*vlan));
+	if (vlan == NULL)
+		return (NULL);
+	memset(vlan, 0, sizeof(*vlan));
+	vlan->vlan_tag = nmif->nm_if_vtag;
+	vlan->nmif = nmif;
+	STAILQ_INSERT_TAIL(&nmif->nm_if_parentif->nm_if_vlans, vlan,
+	    nm_if_vlan_next);
+
+	return (vlan);
 }
 
 static void
@@ -135,25 +279,31 @@ if_debug_buf(struct nm_if *nmif, char **buf, int *buflen)
 	printb(buf, buflen, &resid, "flags", nmif->nm_if_flags, IFFBITS);
 	printf_buf(buf, buflen, &resid, " metric %d mtu %d\n",
 	    nmif->nm_if_metric, nmif->nm_if_mtu);
+	printf_buf(buf, buflen, &resid, "\t");
+	printb(buf, buflen, &resid, "options", nmif->nm_if_caps, IFCAPBITS);
+	printf_buf(buf, buflen, &resid, "\n");
 	printf_buf(buf, buflen, &resid, "\tether: %s\n",
 	    ether_ntoa((struct ether_addr *)LLADDR(&nmif->nm_if_dl)));
 	if (inet_add_if_print(nmif, buf, buflen, &resid) == -1)
 		return;
+	if (nmif->nm_if_dl.sdl_type == IFT_L2VLAN) {
+		printf_buf(buf, buflen, &resid,
+		    "\tvlan: %d parent interface: %s\n",
+		    nmif->nm_if_vtag, nmif->nm_if_vparent);
+	}
 }
 
 static void
-if_print(void *arg)
+if_print(struct nm_if *nmif)
 {
 	char *buf;
 	int buflen;
-	struct nm_if *nmif;
 
 	buflen = BUFSZ;
 	buf = (char *)malloc(buflen);
 	if (buf == NULL)
 		exit(51);
 	memset(buf, 0, buflen);
-	nmif = (struct nm_if *)arg;
 	if_debug_buf(nmif, &buf, &buflen);
 	printf("%s", buf);
 	free(buf);
@@ -171,7 +321,11 @@ if_cli_ifconfig(struct cli *cli, struct cli_args *args)
 	if (buf == NULL)
 		exit(51);
 	memset(buf, 0, buflen);
-	STAILQ_FOREACH(nmif, &nm_ifs, nm_if_) {
+	STAILQ_FOREACH(nmif, &nm_ifs, nm_if_next) {
+		if (if_getdata(nmif) == -1) {
+			free(buf);
+			return (-1);
+		}
 		if_debug_buf(nmif, &buf, &buflen);
 		if (cli_obuf_append(cli, buf, strlen(buf)) == -1) {
 			free(buf);
@@ -199,41 +353,37 @@ if_check_interface(struct nm_if *nmif)
 }
 
 static int
-if_getdata(struct nm_if *nmif)
+if_check_vlan(struct nm_if *nmif)
 {
-	int s;
-	struct ifreq ifr;
+	struct nm_if_vlan *vlan;
+	struct nm_if *parentif;
 
-	s = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (s < 0) {
-		perror("socket");
+	if (nmif->nm_if_dl.sdl_type != IFT_L2VLAN)
+		return (0);
+	if (*nmif->nm_if_vparent == '\0') {
+		printf("vlan with no parent interface\n");
 		return (-1);
 	}
-	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, nmif->nm_if_name, sizeof(ifr.ifr_name));
-	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
-		perror("ioctl");
-		goto error;
+	parentif = nmif->nm_if_parentif = if_get(nmif->nm_if_vparent);
+	if (nmif->nm_if_parentif == NULL) {
+		/* Open the parent interface. */
+		if (if_open(nmif->nm_if_vparent) == -1)
+			return (-1);
+		parentif = nmif->nm_if_parentif = if_get(nmif->nm_if_vparent);
 	}
-	nmif->nm_if_flags = (ifr.ifr_flags & 0xffff) |
-	    (ifr.ifr_flagshigh << 16);
-	if (ioctl(s, SIOCGIFMETRIC, &ifr) == -1) {
-		perror("ioctl");
-		goto error;
+	vlan = if_add_vlan(nmif);
+	if (vlan == NULL)
+		return (-1);
+	if (parentif->nm_if_caps & IFCAP_VLAN_HWTAGGING) {
+		parentif->nm_if_dis_caps |= IFCAP_VLAN_HWTAGGING;
+		printf(
+		    "disabling vlan hardware tagging on parent interface (%s)\n",
+		    parentif->nm_if_name);
+		if (if_setcaps(parentif, -IFCAP_VLAN_HWTAGGING) == -1)
+			return (-1);
 	}
-	nmif->nm_if_metric = ifr.ifr_metric;
-	if (ioctl(s, SIOCGIFMTU, &ifr) == -1) {
-		perror("ioctl");
-		goto error;
-	}
-	nmif->nm_if_mtu = ifr.ifr_mtu;
-	close(s);
 
 	return (0);
-
-error:
-	close(s);
-	return (-1);
 }
 
 static int
@@ -298,7 +448,7 @@ if_cleanup(void *unused)
 {
 	struct nm_if *nmif, *tmp;
 
-	STAILQ_FOREACH_SAFE(nmif, &nm_ifs, nm_if_, tmp) {
+	STAILQ_FOREACH_SAFE(nmif, &nm_ifs, nm_if_next, tmp) {
 		if (nmif->nm_if_fd != -1)
 			netmap_close(nmif);
 		if_del(nmif);
@@ -318,18 +468,18 @@ if_init(void)
 int
 if_open(const char *ifname)
 {
-	int err;
+	int comma, err;
 	struct nm_if *nmif;
+
+	/* Check if interface is already open. */
+	nmif = if_get(ifname);
+	if (nmif != NULL)
+		return (0);
 
 	/* Add the interface to the interface list. */
 	nmif = if_add(ifname);
 	if (nmif == NULL)
 		return (-1);
-	/* Get the interface flags, metric and MTU. */
-	if (if_getdata(nmif) == -1) {
-		if_del(nmif);
-		return (-1);
-	}
 	/* Get the interface addresses. */
 	if (if_getaddrs(nmif) == -1) {
 		if_del(nmif);
@@ -340,8 +490,45 @@ if_open(const char *ifname)
 		if_del(nmif);
 		return (err);
 	}
+	/* Get the interface vlan information, flags, metric and MTU. */
+	if (if_getdata(nmif) == -1) {
+		if_del(nmif);
+		return (-1);
+	}
+	err = if_check_vlan(nmif);
+	if (err) {
+		if_del(nmif);
+		return (err);
+	}
 
 	if_print(nmif);
+
+	/* Do not switch the interface if interface type != ETHER. */
+	if (nmif->nm_if_dl.sdl_type != IFT_ETHER)
+		return (0);
+
+	if (nmif->nm_if_caps & IFCAP_RXCSUM)
+		nmif->nm_if_dis_caps |= IFCAP_RXCSUM;
+	if (nmif->nm_if_caps & IFCAP_TXCSUM)
+		nmif->nm_if_dis_caps |= IFCAP_TXCSUM;
+	if (nmif->nm_if_dis_caps != 0) {
+		comma = 0;
+		printf("disabling ");
+		if (nmif->nm_if_dis_caps & IFCAP_RXCSUM) {
+			printf("rxcsum");
+			comma = 1;
+		}
+		if (nmif->nm_if_dis_caps & IFCAP_TXCSUM) {
+			if (comma == 1)
+				printf(", ");
+			printf("txcsum");
+			comma = 1;
+		}
+		printf(" on physical interface.\n");
+		if (if_setcaps(nmif, -nmif->nm_if_dis_caps) == -1)
+			return (-1);
+	}
+
 	printf("switching interface %s to netmap mode.\n", nmif->nm_if_name);
 	if (netmap_open(nmif) != 0) {
 		if_del(nmif);
@@ -354,20 +541,27 @@ if_open(const char *ifname)
 int
 if_netmap_txsync(void)
 {
-	int err;
 	struct nm_if *nmif;
 
 	/* Sync all the tx rings of netmap interfaces. */
-	STAILQ_FOREACH(nmif, &nm_ifs, nm_if_) {
-		if (nmif->nm_if_txsync == 0)
-			continue;
-
-		err = netmap_tx_sync(nmif);
-		if (err != 0)
-			return (err);
-
-		nmif->nm_if_txsync = 0;
+	STAILQ_FOREACH(nmif, &nm_ifs, nm_if_next) {
+		if (nmif->nm_if_txsync)
+			if (netmap_tx_sync(nmif) == -1)
+				return (-1);
 	}
 
 	return (0);
+}
+
+struct nm_if_vlan *
+if_find_vlan(struct nm_if *nmif, int vlan_tag)
+{
+	struct nm_if_vlan *vlan;
+
+	STAILQ_FOREACH(vlan, &nmif->nm_if_vlans, nm_if_vlan_next) {
+		if (vlan->vlan_tag == (vlan_tag & EVL_VLID_MASK))
+			return (vlan);
+	}
+
+	return (NULL);
 }

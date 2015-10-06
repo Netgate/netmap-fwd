@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,6 +24,14 @@
  * SUCH DAMAGE.
  */
 
+#define	HW_RING			0x1
+#define	HOST_RING		0x2
+#define	NETMAP_VLANIF(_i)						\
+	(*(_i)->nm_if_vparent != '\0' && (_i)->nm_if_parentif != NULL)
+#define	NETMAP_PARENTIF(_i)						\
+	(NETMAP_VLANIF(_i) ? ((_i)->nm_if_parentif) : (_i))
+#define	NETMAP_HOST_RING(_i, _r)					\
+	((_i)->nm_if_ifp->ni_rx_rings == (_r))
 #define	NETMAP_GET_BUF(_r)						\
 	NETMAP_BUF((_r), (_r)->slot[(_r)->cur].buf_idx)
 #define	NETMAP_SLOT_LEN(_r)						\
@@ -39,8 +47,21 @@
 		NETMAP_SLOT_LEN(_r) = _len;				\
 	} while (0)
 
+inline struct netmap_ring *
+netmap_hw_tx_ring(struct netmap_if *ifp)
+{
+	int i;
+	struct netmap_ring *nring;
+
+	for (i = 0; i < ifp->ni_tx_rings; i++) {
+		nring = NETMAP_TXRING(ifp, i);
+		if (!nm_ring_empty(nring))
+			return (nring);
+	}
+
+	return (NULL);
+}
+
 int netmap_open(struct nm_if *);
 int netmap_close(struct nm_if *);
-struct netmap_ring *netmap_get_tx_ring(struct nm_if *);
-int netmap_rx_sync(struct nm_if *);
 int netmap_tx_sync(struct nm_if *);

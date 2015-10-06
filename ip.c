@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,11 +28,13 @@
 #include <sys/types.h>
 
 #include <arpa/inet.h>
+#include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
 #include <errno.h>
+#include <stdio.h>
 
 #include "cli.h"
 #include "counters.h"
@@ -41,8 +43,10 @@
 #include "if.h"
 #include "inet.h"
 #include "ip.h"
+#include "netmap.h"
 #include "util.h"
 
+extern int nohostring;
 static int ip_id = 1;
 
 #define ADDCARRY(x)  (x > 65535 ? x -= 65535 : x)
@@ -102,7 +106,7 @@ ip_fwd(struct nm_if *nmif, char *buf, int len)
 	ip = (struct ip *)buf;
 	rt = inet_match(&ip->ip_dst);
 	if (rt == NULL) {
-		dprintf("%s: no route for host (dst: %s)\n",
+		DPRINTF("%s: no route for host (dst: %s)\n",
 		    __func__, inet_ntoa(ip->ip_dst));
 		return (-1);
 	}
@@ -125,9 +129,11 @@ ip_fwd(struct nm_if *nmif, char *buf, int len)
 		ip->ip_sum += htons(IPTTLDEC << 8);
 
 	if (rt->flags & RTF_GATEWAY)
-		err = ether_output(rt->nmif, &rt->gw.sin_addr, buf, len);
+		err = ether_output(rt->nmif, &rt->gw.sin_addr, NULL,
+		    ETHERTYPE_IP, buf, len);
 	else
-		err = ether_output(rt->nmif, &ip->ip_dst, buf, len);
+		err = ether_output(rt->nmif, &ip->ip_dst, NULL, ETHERTYPE_IP,
+		    buf, len);
 	switch (err) {
 	case EWOULDBLOCK:
 		/* Add packet to FIFO. */
@@ -144,38 +150,38 @@ ip_fwd(struct nm_if *nmif, char *buf, int len)
 }
 
 int
-ip_input(struct nm_if *nmif, char *buf, int len)
+ip_input(struct nm_if *nmif, int ring, char *buf, int len)
 {
 	int hlen, ip_len;
 	struct ip *ip;
 
 	if (len < sizeof(*ip)) {
-		dprintf("%s: discard packet, too short (%d).\n", __func__, len);
+		DPRINTF("%s: discard packet, too short (%d).\n", __func__, len);
 		pktcnt.ip_drop++;
 		return (-1);
 	}
 	ip = (struct ip *)buf;
 	if (ip->ip_v != IPVERSION) {
-		dprintf("%s: discard packet, bad ver (%#x).\n",
+		DPRINTF("%s: discard packet, bad ver (%#x).\n",
 		    __func__, ip->ip_v);
 		pktcnt.ip_drop++;
 		return (-1);
 	}
 	hlen = ip->ip_hl << 2;
 	if (hlen < sizeof(struct ip)) { /* minimum header length */
-		dprintf("%s: discard packet, bad header len (%d).\n",
+		DPRINTF("%s: discard packet, bad header len (%d).\n",
 		    __func__, len);
 		pktcnt.ip_drop++;
 		return (-1);
 	}
 	if (in_cksum(buf, hlen)) {
-		dprintf("%s: bad checksum, discarding the packet.\n", __func__);
+		DPRINTF("%s: bad checksum, discarding the packet.\n", __func__);
 		pktcnt.ip_drop++;
 		return (-1);
 	}
 	ip_len = ntohs(ip->ip_len);
 	if (ip_len < hlen || ip_len > len) {
-		dprintf("%s: discard packet, bad ip len (%d).\n",
+		DPRINTF("%s: discard packet, bad ip len (%d).\n",
 		    __func__, len);
 		pktcnt.ip_drop++;
 		return (-1);
@@ -184,7 +190,7 @@ ip_input(struct nm_if *nmif, char *buf, int len)
 	/* Discard packet addressed to 127/8. */
 	if ((ntohl(ip->ip_dst.s_addr) >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET ||
 	    (ntohl(ip->ip_src.s_addr) >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET) {
-		dprintf("%s: bad address (127/8), discanding the packet.\n",
+		DPRINTF("%s: bad address (127/8), discanding the packet.\n",
 		    __func__);
 		pktcnt.ip_drop++;
 		return (-1);
@@ -198,7 +204,8 @@ ip_input(struct nm_if *nmif, char *buf, int len)
 	}
 
 	/* Only unicast IP on fast forward routing. */
-	if (inet_our_addr(&ip->ip_dst) == 0 &&
+	if (!NETMAP_HOST_RING(NETMAP_PARENTIF(nmif), ring) &&
+	    inet_our_addr(&ip->ip_dst) == 0 &&
 	    inet_our_broadcast(&ip->ip_dst) == 0 &&
 	    ntohl(ip->ip_src.s_addr) != (u_long)INADDR_BROADCAST &&
 	    ntohl(ip->ip_dst.s_addr) != (u_long)INADDR_BROADCAST &&
@@ -210,20 +217,13 @@ ip_input(struct nm_if *nmif, char *buf, int len)
 	    ip->ip_dst.s_addr != INADDR_ANY)
 		return (ip_fwd(nmif, buf, len));
 
-	switch (ip->ip_p) {
-	case IPPROTO_ICMP:
+	if (nohostring && ip->ip_p == IPPROTO_ICMP) {
 		pktcnt.ip_icmp++;
 		return (icmp_input(nmif, buf, len));
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-	default:
-		dprintf("%s: unsupported IP protocol (%#x), discarding the packet.\n",
-		    __func__, ip->ip_p);
-		pktcnt.ip_drop++;
-		return (-1);
 	}
 
-	return (0);
+	/* Ask to ether_input to send the packet to host <-> hw bridge. */
+	return (1);
 }
 
 int
@@ -237,5 +237,6 @@ ip_output(struct nm_if *nmif, char *inbuf, int inlen)
 	ip->ip_sum = 0;
 	ip->ip_sum = in_cksum(inbuf, ip->ip_hl << 2);
 
-	return (ether_output(nmif, &ip->ip_dst, inbuf, inlen));
+	return (ether_output(nmif, &ip->ip_dst, NULL, ETHERTYPE_IP, inbuf,
+	    inlen));
 }

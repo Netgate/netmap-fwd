@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 #include <netinet/ip_icmp.h>
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -124,20 +125,20 @@ icmp_input(struct nm_if *nmif, char *buf, int len)
 	hlen = ip->ip_hl << 2;
 	icmp_len = len - hlen;
 	if (icmp_len < ICMP_MINLEN || icmp_len < sizeof(struct icmphdr)) {
-		dprintf("%s: packet too short, discading (%d).\n",
+		DPRINTF("%s: packet too short, discading (%d).\n",
 		    __func__, icmp_len);
 		pktcnt.icmp_drop++;
 		return (-1);
 	}
 	icmp = (struct icmp *)(buf + hlen);
 	if (in_cksum(buf + hlen, len - hlen)) {
-		dprintf("%s: bad checksum, discarding the packet.\n", __func__);
+		DPRINTF("%s: bad checksum, discarding the packet.\n", __func__);
 		pktcnt.icmp_drop++;
 		return (-1);
 	}
 
 	if (icmp->icmp_type != ICMP_ECHO || icmp->icmp_code != 0) {
-		dprintf("%s: unknown ICMP type and code, discading the packet (%#x:%d).\n",
+		DPRINTF("%s: unknown ICMP type and code, discading the packet (%#x:%d).\n",
 		    __func__, icmp->icmp_type, icmp->icmp_code);
 		pktcnt.icmp_unknown++;
 		return (-1);
@@ -159,7 +160,7 @@ icmp_error(struct nm_if *nmif, char *buf, int len, int type, int code)
 	unsigned int icmplen, icmpelen, nlen, oiphlen;
 
 	if (type > ICMP_MAXTYPE) {
-		dprintf("%s: invalid ICMP type: %d\n", __func__, type);
+		DPRINTF("%s: invalid ICMP type: %d\n", __func__, type);
 		return (-1);
 	}
 

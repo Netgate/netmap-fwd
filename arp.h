@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,5 +42,5 @@ struct arp {
 void arp_init(void);
 struct arp *arp_add(struct nm_if *, struct ether_addr *, struct in_addr *, int);
 int arp_search_if(struct nm_if *, struct in_addr *, struct arp **);
-int arp_input(struct nm_if *, char *, int);
+int arp_input(struct nm_if *, int, char *, int);
 int arp_request(struct nm_if *, struct in_addr *);

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,20 +37,6 @@
 
 #define	MAXBUFSZ	(BUFSZ * 1024)
 
-extern int verbose;
-
-void
-dprintf(const char *fmt, ...)
-{
-	va_list ap;
-
-	if (!verbose)
-		return;
-	va_start(ap, fmt);
-	vprintf(fmt, ap);
-	va_end(ap);
-}
-
 int
 printf_buf(char **buf, int *buflen, int *resid, const char *fmt, ...)
 {
@@ -62,7 +48,7 @@ printf_buf(char **buf, int *buflen, int *resid, const char *fmt, ...)
 	tmplen = BUFSZ;
 	tmp = (char *)malloc(tmplen);
 	do {
- 		if (len > tmplen) {
+ 		if (len >= tmplen) {
 			tmplen += BUFSZ;
 			tmp = realloc(tmp, tmplen);
 			if (tmp == NULL)
@@ -76,10 +62,10 @@ printf_buf(char **buf, int *buflen, int *resid, const char *fmt, ...)
 			free(tmp);
 			return (-1);
 		}
-	} while (len > tmplen);
-	while (len + *resid > *buflen) {
+	} while (len >= tmplen);
+	while (len + *resid >= *buflen) {
 		*buflen += BUFSZ;
-		if (*buflen > MAXBUFSZ) {
+		if (*buflen >= MAXBUFSZ) {
 			free(tmp);
 			return (-1);
 		}

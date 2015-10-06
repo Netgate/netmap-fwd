@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -94,7 +94,7 @@ ev_init(void)
 		event_config_free(cfg);
 		return (-1);
 	}
-	dprintf("event method: %s\n", event_base_get_method(ev_base));
+	DPRINTF("event method: %s\n", event_base_get_method(ev_base));
 	event_config_free(cfg);
 
 	/* Add the cleanup callback. */

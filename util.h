@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,8 +25,10 @@
  */
 
 #define	BUFSZ		256
+#define	DPRINTF(_fmt, args...)		if (verbose) printf(_fmt, ## args)
 
-void dprintf(const char *, ...);
+extern int verbose;
+
 int printf_buf(char **, int *, int *, const char *, ...);
 void printb(char **, int *, int *, const char *, unsigned, const char *);
 int pidfile_create(const char *);

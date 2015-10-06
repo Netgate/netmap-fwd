@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,11 +68,6 @@ net_fd_config(int fd, int flags)
 	}
 
 	return(0);
-}
-
-int
-set_nonblock(int fd) {
-    return(fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK));
 }
 
 int

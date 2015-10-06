@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,5 +25,5 @@
  */
 
 int in_cksum(char *, int);
-int ip_input(struct nm_if *, char *, int);
+int ip_input(struct nm_if *, int, char *, int);
 int ip_output(struct nm_if *, char *, int);

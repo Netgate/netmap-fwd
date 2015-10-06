@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,7 @@
 #define	PREFIX		"/usr/local/etc/"
 #endif
 
+int nohostring = 0;
 int verbose = 0;
 struct pkt_cnt pktcnt;
 
@@ -59,7 +60,10 @@ usage(void)
 {
 
 	printf("usage:\n");
-	printf("netmap-fwd [-f netmap-fwd.conf] if [if2] [ifN]\n");
+	printf("netmap-fwd [-H] [-f netmap-fwd.conf] [-v] if1 [if2] [ifN]\n");
+	printf("\t-H\tdo not open the host ring\n");
+	printf("\t-f\tset the path to netmap-fwd config file\n");
+	printf("\t-v\tverbose\n");
 	exit(1);
 }
 
@@ -70,12 +74,12 @@ main(int argc, char **argv)
 	const char *config;
 	int ch, err, ifs;
 
-	if (argc < 2)
-		usage();
-
 	config = NULL;
-	while ((ch = getopt(argc, argv, "f:v")) != -1) {
+	while ((ch = getopt(argc, argv, "Hf:v")) != -1) {
 		switch (ch) {
+		case 'H':
+			nohostring = 1;
+			break;
 		case 'f':
 			config = optarg;
 			break;
@@ -87,6 +91,8 @@ main(int argc, char **argv)
 	ifs = 0;
 	argc -= optind;
 	argv += optind;
+	if (argc < 1)
+		usage();
 
 	/* Parse the config file. */
 	if (config == NULL)

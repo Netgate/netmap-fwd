@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2015, Luiz Souza <loos@freebsd.org>
+ * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,12 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/queue.h>
+#include <sys/types.h>
 
+#include <net/ethernet.h>
 #include <netinet/in.h>
 
 #include <fcntl.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -42,34 +43,41 @@
 #include "netmap.h"
 #include "util.h"
 
+extern int nohostring;
+
 static void
 netmap_read(evutil_socket_t fd, short event, void *data)
 {
-	int i, rx;
-	struct netmap_ring *ring;
+	char *buf;
+	int err, i, rx_rings;
+	struct netmap_if *ifp;
+	struct netmap_ring *nring;
 	struct nm_if *nmif;
 
-	rx = 0;
 	nmif = (struct nm_if *)data;
-	for (i = 0; i < nmif->nm_if_rx_rings; i++) {
-		ring = NETMAP_RXRING(nmif->nm_if_ifp, i);
-		while (!nm_ring_empty(ring)) {
-			ether_input(nmif, NETMAP_GET_BUF(ring),
-			    NETMAP_SLOT_LEN(ring));
-			NETMAP_RING_NEXT(ring);
-			rx++;
+	ifp = nmif->nm_if_ifp;
+	rx_rings = ifp->ni_rx_rings;
+	if (!nohostring)
+		rx_rings++;
+	for (i = 0; i < rx_rings; i++) {
+		nring = NETMAP_RXRING(ifp, i);
+		while (!nm_ring_empty(nring)) {
+			buf = NETMAP_GET_BUF(nring);
+			err = ether_input(nmif, i, buf, NETMAP_SLOT_LEN(nring));
+			/* Send the packet to hw <-> host bridge. */
+			if (!nohostring && err == 1)
+				ether_bridge(nmif, i, buf,
+				    NETMAP_SLOT_LEN(nring));
+			NETMAP_RING_NEXT(nring);
 		}
 	}
 	if_netmap_txsync();
-	if (rx > 0)
-		netmap_rx_sync(nmif);
 }
 
 int
 netmap_open(struct nm_if *nmif)
 {
 	struct nmreq nmreq;
-	struct netmap_if *ifp;
 
 	nmif->nm_if_fd = open("/dev/netmap", O_RDWR);
 	if (nmif->nm_if_fd == -1) {
@@ -80,23 +88,27 @@ netmap_open(struct nm_if *nmif)
 	memset(&nmreq, 0, sizeof(nmreq));
 	strcpy(nmreq.nr_name, nmif->nm_if_name);
 	nmreq.nr_version = NETMAP_API;
-	nmreq.nr_flags = NR_REG_ALL_NIC;
+	if (nohostring)
+		nmreq.nr_flags = NR_REG_ALL_NIC;
+	else
+		nmreq.nr_flags = NR_REG_NIC_SW;
 
 	if (ioctl(nmif->nm_if_fd, NIOCREGIF, &nmreq) == -1) {
 		perror("ioctl");
 		netmap_close(nmif);
 		return (-1);
 	}
-dprintf("name: %s\n", nmreq.nr_name);
-dprintf("version: %d\n", nmreq.nr_version);
-dprintf("offset: %d\n", nmreq.nr_offset);
-dprintf("memsize: %d\n", nmreq.nr_memsize);
-dprintf("tx_slots: %d\n", nmreq.nr_tx_slots);
-dprintf("rx_slots: %d\n", nmreq.nr_rx_slots);
-dprintf("tx_rings: %d\n", nmreq.nr_tx_rings);
-dprintf("rx_rings: %d\n", nmreq.nr_rx_rings);
-dprintf("ringid: %#x\n", nmreq.nr_ringid);
-dprintf("flags: %#x\n", nmreq.nr_flags);
+DPRINTF("fd: %d\n", nmif->nm_if_fd);
+DPRINTF("name: %s\n", nmreq.nr_name);
+DPRINTF("version: %d\n", nmreq.nr_version);
+DPRINTF("offset: %d\n", nmreq.nr_offset);
+DPRINTF("memsize: %d\n", nmreq.nr_memsize);
+DPRINTF("tx_slots: %d\n", nmreq.nr_tx_slots);
+DPRINTF("rx_slots: %d\n", nmreq.nr_rx_slots);
+DPRINTF("tx_rings: %d\n", nmreq.nr_tx_rings);
+DPRINTF("rx_rings: %d\n", nmreq.nr_rx_rings);
+DPRINTF("ringid: %#x\n", nmreq.nr_ringid);
+DPRINTF("flags: %#x\n", nmreq.nr_flags);
 	nmif->nm_if_memsize = nmreq.nr_memsize;
 	nmif->nm_if_mem = mmap(NULL, nmif->nm_if_memsize,
 	    PROT_READ | PROT_WRITE, MAP_SHARED, nmif->nm_if_fd, 0);
@@ -105,9 +117,7 @@ dprintf("flags: %#x\n", nmreq.nr_flags);
 		netmap_close(nmif);
 		return (-1);
 	}
-	ifp = nmif->nm_if_ifp = NETMAP_IF(nmif->nm_if_mem, nmreq.nr_offset);
-	nmif->nm_if_rx_rings = ifp->ni_rx_rings;
-	nmif->nm_if_tx_rings = ifp->ni_tx_rings;
+	nmif->nm_if_ifp = NETMAP_IF(nmif->nm_if_mem, nmreq.nr_offset);
 	nmif->nm_if_ev_read = event_new(ev_get_base(), nmif->nm_if_fd,
 	    EV_READ | EV_PERSIST, netmap_read, nmif);
 	event_add(nmif->nm_if_ev_read, NULL);
@@ -140,33 +150,6 @@ netmap_close(struct nm_if *nmif)
 	return (0);
 }
 
-inline struct netmap_ring *
-netmap_get_tx_ring(struct nm_if *nmif)
-{
-	int i;
-	struct netmap_ring *ring;
-
-	for (i = 0; i < nmif->nm_if_tx_rings; i++) {
-		ring = NETMAP_TXRING(nmif->nm_if_ifp, i);
-		if (!nm_ring_empty(ring))
-			return (ring);
-	}
-
-	return (NULL);
-}
-
-int
-netmap_rx_sync(struct nm_if *nmif)
-{
-
-	if (ioctl(nmif->nm_if_fd, NIOCRXSYNC, NULL) == -1) {
-		perror("ioctl");
-		return (-1);
-	}
-
-	return (0);
-}
-
 int
 netmap_tx_sync(struct nm_if *nmif)
 {
@@ -175,6 +158,7 @@ netmap_tx_sync(struct nm_if *nmif)
 		perror("ioctl");
 		return (-1);
 	}
+	nmif->nm_if_txsync = 0;
 
 	return (0);
 }
