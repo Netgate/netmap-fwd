@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
+ * Copyright (c) 2015, Rubicon Communications, LP (Netgate)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -264,26 +265,26 @@ cli_stat(struct cli *cli, struct cli_args *unused)
 		exit(51);
 	memset(buf, 0, buflen);
 	printf_buf(&buf, &buflen, &resid,
-	    "arp_whohas:      %10d\n"
-	    "arp_reply_sent:  %10d\n"
-	    "arp_reply:       %10d\n"
-	    "arp_request:     %10d\n"
-	    "arp_drop:        %10d\n"
-	    "icmp_badaddr:    %10d\n"
-	    "icmp_echo:       %10d\n"
-	    "icmp_error:      %10d\n"
-	    "icmp_drop:       %10d\n"
-	    "icmp_old:        %10d\n"
-	    "icmp_reply:      %10d\n"
-	    "icmp_unknown:    %10d\n"
-	    "ip_icmp:         %10d\n"
-	    "ip_drop:         %10d\n"
-	    "ip_fwd:          %10d\n"
-	    "rx_arp:          %10d\n"
-	    "rx_ip:           %10d\n"
-	    "rx_drop:         %10d\n"
-	    "tx_drop:         %10d\n"
-	    "tx_pkts:         %10d\n",
+	    "arp_whohas:      %10u\n"
+	    "arp_reply_sent:  %10u\n"
+	    "arp_reply:       %10u\n"
+	    "arp_request:     %10u\n"
+	    "arp_drop:        %10u\n"
+	    "icmp_badaddr:    %10u\n"
+	    "icmp_echo:       %10u\n"
+	    "icmp_error:      %10u\n"
+	    "icmp_drop:       %10u\n"
+	    "icmp_old:        %10u\n"
+	    "icmp_reply:      %10u\n"
+	    "icmp_unknown:    %10u\n"
+	    "ip_icmp:         %10u\n"
+	    "ip_drop:         %10u\n"
+	    "ip_fwd:          %10u\n"
+	    "rx_arp:          %10u\n"
+	    "rx_ip:           %10u\n"
+	    "rx_drop:         %10u\n"
+	    "tx_drop:         %10u\n"
+	    "tx_pkts:         %10u\n",
 	    pktcnt.arp_whohas, pktcnt.arp_reply_sent, pktcnt.arp_reply,
 	    pktcnt.arp_request, pktcnt.arp_drop, pktcnt.icmp_badaddr,
 	    pktcnt.icmp_echo, pktcnt.icmp_error, pktcnt.icmp_drop,

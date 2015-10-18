@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
+ * Copyright (c) 2015, Rubicon Communications, LP (Netgate)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

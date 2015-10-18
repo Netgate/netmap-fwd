@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2015, Luiz Otavio O Souza <loos@FreeBSD.org>
+ * Copyright (c) 2015, Rubicon Communications, LP (Netgate)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,26 +26,26 @@
  */
 
 struct pkt_cnt {
-	int arp_whohas;    
-	int arp_reply_sent;
-	int arp_reply;
-	int arp_request;
-	int arp_drop;
-	int icmp_badaddr;
-	int icmp_drop;
-	int icmp_echo;
-	int icmp_error;
-	int icmp_old;
-	int icmp_reply;
-	int icmp_unknown;
-	int ip_icmp;
-	int ip_drop;
-	int ip_fwd;
-	int rx_arp;
-	int rx_ip;
-	int rx_drop;
-	int tx_drop;
-	int tx_pkts;
+	unsigned int arp_whohas;    
+	unsigned int arp_reply_sent;
+	unsigned int arp_reply;
+	unsigned int arp_request;
+	unsigned int arp_drop;
+	unsigned int icmp_badaddr;
+	unsigned int icmp_drop;
+	unsigned int icmp_echo;
+	unsigned int icmp_error;
+	unsigned int icmp_old;
+	unsigned int icmp_reply;
+	unsigned int icmp_unknown;
+	unsigned int ip_icmp;
+	unsigned int ip_drop;
+	unsigned int ip_fwd;
+	unsigned int rx_arp;
+	unsigned int rx_ip;
+	unsigned int rx_drop;
+	unsigned int tx_drop;
+	unsigned int tx_pkts;
 };
 
 extern struct pkt_cnt pktcnt;
