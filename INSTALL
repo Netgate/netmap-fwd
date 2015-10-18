@@ -325,3 +325,27 @@ tx_drop:            3763667
 tx_pkts:           42351852
 > 
 
+Stopping netmap-fwd will result in kernel forwarding taking over.  
+Note the much lower pps rate, and observe that the 8860 is extremely busy..
+
+245.073692 main_thread [1528] 1488128 pps (1491118 pkts in 1002009 usec)
+246.075696 main_thread [1528] 1488128 pps (1491112 pkts in 1002005 usec)
+247.139190 main_thread [1528] 1488128 pps (1582614 pkts in 1063493 usec)
+248.139692 main_thread [1528] 1488125 pps (1488874 pkts in 1000503 usec)
+249.196684 main_thread [1528] 1488132 pps (1572942 pkts in 1056991 usec)
+250.206158 main_thread [1528] 1488128 pps (1502228 pkts in 1009475 usec)
+251.269185 main_thread [1528] 1488129 pps (1581920 pkts in 1063026 usec)
+252.332192 main_thread [1528] 795925 pps (846074 pkts in 1063007 usec)
+253.341787 main_thread [1528] 0 pps (0 pkts in 1009596 usec)
+254.404185 main_thread [1528] 0 pps (0 pkts in 1062397 usec)
+255.466188 main_thread [1528] 0 pps (0 pkts in 1062003 usec)
+256.475713 main_thread [1528] 0 pps (0 pkts in 1009526 usec)
+257.539186 main_thread [1528] 223871 pps (238081 pkts in 1063472 usec)
+258.576696 main_thread [1528] 246112 pps (255344 pkts in 1037510 usec)
+259.578682 main_thread [1528] 246933 pps (247423 pkts in 1001986 usec)
+260.642191 main_thread [1528] 247135 pps (262830 pkts in 1063509 usec)
+261.705187 main_thread [1528] 246257 pps (261770 pkts in 1062996 usec)
+262.706687 main_thread [1528] 246607 pps (246977 pkts in 1001500 usec)
+263.737732 main_thread [1528] 246682 pps (254340 pkts in 1031046 usec)
+264.738680 main_thread [1528] 246789 pps (247023 pkts in 1000948 usec)
+265.740680 main_thread [1528] 249293 pps (249792 pkts in 1002000 usec)
