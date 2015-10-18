@@ -99,7 +99,7 @@ igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
 	media: Ethernet autoselect (1000baseT <full-duplex>)
 	status: active
 
-The standard config file is in /usr/local/etc, but you can use the '-f' flag to overridethis.
+The standard config file is in /usr/local/etc, but you can use the '-f' flag to override this.
 
 # ./netmap-fwd -f ./netmap-fwd.conf igb4 igb5
 igb4: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
