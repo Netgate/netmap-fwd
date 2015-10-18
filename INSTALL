@@ -1,0 +1,327 @@
+
+Building netmap-fwd depends on libucl and libevent2.
+
+# pkg install libucl libevent2
+Updating FreeBSD repository catalogue...
+FreeBSD repository is up-to-date.
+All repositories are up-to-date.
+Checking integrity... done (0 conflicting)
+The following 2 package(s) will be affected (of 0 checked):
+
+New packages to be INSTALLED:
+	libucl: 0.7.3_1
+	libevent2: 2.0.22_1
+
+The process will require 2 MiB more space.
+
+Proceed with this action? [y/N]: y
+[1/2] Installing libucl-0.7.3_1...
+[1/2] Extracting libucl-0.7.3_1: 100%
+[2/2] Installing libevent2-2.0.22_1...
+[2/2] Extracting libevent2-2.0.22_1: 100%
+
+At this point, you can just type 'make'.
+
+% make
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c arp.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c cleanup.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c cli.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c config.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c ether.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c event.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c icmp.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c if.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c inet.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c ip.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c net.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c netmap.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c netmap-fwd.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c radix.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -c util.c
+cc -O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wwrite-strings -Wredundant-decls -Wnested-externs -Winline -I/usr/local/include -o netmap-fwd arp.o cleanup.o cli.o config.o ether.o event.o icmp.o if.o inet.o ip.o net.o netmap.o netmap-fwd.o radix.o util.o -L/usr/local/lib -levent -lutil -lucl
+% 
+
+
+[netgate-2220-1][igb1]<---->[igb4][netgate-8860][igb5]<----->[igb1][netgate-2220-2]
+
+
+jim@netgate-2220-1:~ % ifconfig igb1
+igb1: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether 00:08:a2:09:6b:87
+	inet 192.168.1.2 netmask 0xffffff00 broadcast 192.168.1.255 
+	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+	media: Ethernet autoselect (1000baseT <full-duplex>)
+	status: active
+
+jim@netgate-2220-1:~ % netstat -rn (only affected IPV4 routes shown)
+Routing tables
+
+Internet:
+Destination        Gateway            Flags     Netif Expire
+192.168.1.0/24     link#2             U          igb1
+192.168.1.2        link#2             UHS         lo0
+192.168.2.0/24     192.168.1.1        UGS        igb1
+
+jim@netgate-2220-2:~ % ifconfig igb1
+igb1: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether 00:08:a2:09:6b:93
+	inet 192.168.2.2 netmask 0xffffff00 broadcast 192.168.2.255 
+	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+	media: Ethernet autoselect (1000baseT <full-duplex>)
+	status: active
+
+jim@netgate-2220-2:~ % netstat -rn
+Routing tables
+
+Internet:
+Destination        Gateway            Flags     Netif Expire
+192.168.1.0/24     192.168.2.1        UGS        igb1
+192.168.2.0/24     link#2             U          igb1
+192.168.2.2        link#2             UHS         lo0
+
+jim@netgate-8860:~/netmap-fwd %	ifconfig igb4
+igb4: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether 00:08:a2:09:3d:d8
+	inet 192.168.1.1 netmask 0xffffff00 broadcast 192.168.1.255 
+	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+	media: Ethernet autoselect (1000baseT <full-duplex>)
+	status: active
+
+m@netgate-8860:~/netmap-fwd %	ifconfig igb5
+igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether 00:08:a2:09:3d:d9
+	inet 192.168.2.1 netmask 0xffffff00 broadcast 192.168.2.255 
+	nd6 options=29<PERFORMNUD,IFDISABLED,AUTO_LINKLOCAL>
+	media: Ethernet autoselect (1000baseT <full-duplex>)
+	status: active
+
+The standard config file is in /usr/local/etc, but you can use the '-f' flag to overridethis.
+
+# ./netmap-fwd -f ./netmap-fwd.conf igb4 igb5
+igb4: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether: 00:08:a2:09:3d:d8
+	inet 192.168.1.1 netmask 255.255.255.0 broadcast 192.168.1.255
+disabling rxcsum, txcsum on physical interface.
+switching interface igb4 to netmap mode.
+igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO>
+	ether: 00:08:a2:09:3d:d9
+	inet 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255
+disabling rxcsum, txcsum on physical interface.
+switching interface igb5 to netmap mode.
+
+A simple CLI is availabe via /var/run/netmap-fwd.sock
+
+# telnet /var/run/netmap-fwd.sock
+Trying /var/run/netmap-fwd.sock...
+Connected to /var/run/netmap-fwd.sock.
+Escape character is '^]'.
+netmap-fwd cli interface
+> help
+route - list and manipulate the route table
+arp - show ARP list
+ifconfig - show interface configuration
+status - show general status
+shutdown - shutdown netmap-fwd
+quit - disconnect from cli interface
+help - get help about cli commands
+cli - show cli status
+> arp
+? (192.168.2.1) at 00:08:a2:09:3d:d9 on igb5 permanent
+? (192.168.1.1) at 00:08:a2:09:3d:d8 on igb4 permanent
+> status
+arp_whohas:               0
+arp_reply_sent:           0
+arp_reply:                0
+arp_request:              0
+arp_drop:                 0
+icmp_badaddr:             0
+icmp_echo:                0
+icmp_error:               0
+icmp_drop:                0
+icmp_old:                 0
+icmp_reply:               0
+icmp_unknown:             0
+ip_icmp:                  0
+ip_drop:                  0
+ip_fwd:                   0
+rx_arp:                   0
+rx_ip:                    0
+rx_drop:                  0
+tx_drop:                  0
+tx_pkts:                  0
+> ifconfig
+igb4: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=1403b8<VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO,NETMAP>
+	ether: 00:08:a2:09:3d:d8
+	inet 192.168.1.1 netmask 255.255.255.0 broadcast 192.168.1.255
+igb5: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500
+	options=1403b8<VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO,NETMAP>
+	ether: 00:08:a2:09:3d:d9
+	inet 192.168.2.1 netmask 255.255.255.0 broadcast 192.168.2.255
+
+And after exchanging a few pings:
+
+jim@netgate-2220-2:~ % ping -c 3 192.168.1.2
+PING 192.168.1.2 (192.168.1.2): 56 data bytes
+64 bytes from 192.168.1.2: icmp_seq=2 ttl=63 time=0.257 ms
+
+--- 192.168.1.2 ping statistics ---
+3 packets transmitted, 1 packets received, 66.7% packet loss
+round-trip min/avg/max/stddev = 0.257/0.257/0.257/0.000 ms
+jim@netgate-2220-2:~ % 
+
+jim@netgate-2220-1:~ % ping -c 3 192.168.2.2
+PING 192.168.2.2 (192.168.2.2): 56 data bytes
+64 bytes from 192.168.2.2: icmp_seq=0 ttl=63 time=0.301 ms
+64 bytes from 192.168.2.2: icmp_seq=1 ttl=63 time=0.275 ms
+64 bytes from 192.168.2.2: icmp_seq=2 ttl=63 time=0.275 ms
+
+--- 192.168.2.2 ping statistics ---
+3 packets transmitted, 3 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 0.275/0.284/0.301/0.012 ms
+jim@netgate-2220-1:~ % 
+
+> arp
+? (192.168.2.2) at 00:08:a2:09:6b:93 on igb5 expires 1142 seconds
+? (192.168.1.2) at 00:08:a2:09:6b:87 on igb4 expires 1141 seconds
+? (192.168.2.1) at 00:08:a2:09:3d:d9 on igb5 permanent
+? (192.168.1.1) at 00:08:a2:09:3d:d8 on igb4 permanent
+> status
+arp_whohas:               0
+arp_reply_sent:           0
+arp_reply:                2
+arp_request:              0
+arp_drop:                 0
+icmp_badaddr:             0
+icmp_echo:                0
+icmp_error:               0
+icmp_drop:                0
+icmp_old:                 0
+icmp_reply:               0
+icmp_unknown:             0
+ip_icmp:                  0
+ip_drop:                  0
+ip_fwd:                  11
+rx_arp:                   2
+rx_ip:                   11
+rx_drop:                  0
+tx_drop:                  0
+tx_pkts:                 13
+> 
+
+higher rate tests can be done with pkg-gen (from $SRC/tools/tools/netmap/)
+
+Start the receiver (note that several seconds pass until the transmitter is started):
+
+jim@netgate-2220-1:~ % sudo pkt-gen -i igb1 -f rx -s 192.168.1.2 -d 192.168.2.2 -S 00:08:a2:09:6b:87 -D 00:08:a2:09:6b:87
+297.860356 main [1731] interface is igb1
+297.860442 extract_ip_range [293] range is 192.168.1.2:0 to 192.168.1.2:0
+297.860463 extract_ip_range [293] range is 192.168.2.2:0 to 192.168.2.2:0
+299.183251 main [1931] mapped 334980KB at 0x801600000
+Receiving from netmap:igb1: 4 queues, 1 threads and 1 cpus.
+299.183465 main [2017] Wait 2 secs for phy reset
+301.306450 main [2019] Ready...
+301.306620 nm_open [517] overriding ifname igb1 ringid 0x0 flags 0x1
+301.306863 receiver_body [1261] reading from netmap:igb1 fd 4 main_fd 3
+302.317766 receiver_body [1268] waiting for initial packets, poll returns 0 0
+302.368259 main_thread [1528] 0 pps (0 pkts in 1061429 usec)
+303.381255 receiver_body [1268] waiting for initial packets, poll returns 0 0
+303.430254 main_thread [1528] 0 pps (0 pkts in 1061996 usec)
+304.436760 main_thread [1528] 0 pps (0 pkts in 1006505 usec)
+304.436808 receiver_body [1268] waiting for initial packets, poll returns 0 0
+305.496754 receiver_body [1268] waiting for initial packets, poll returns 0 0
+305.496770 main_thread [1528] 0 pps (0 pkts in 1060010 usec)
+306.556754 main_thread [1528] 0 pps (0 pkts in 1059985 usec)
+306.556756 receiver_body [1268] waiting for initial packets, poll returns 0 0
+307.616755 receiver_body [1268] waiting for initial packets, poll returns 0 0
+307.616773 main_thread [1528] 0 pps (0 pkts in 1060018 usec)
+308.671843 main_thread [1528] 0 pps (0 pkts in 1055070 usec)
+308.671881 receiver_body [1268] waiting for initial packets, poll returns 0 0
+309.673745 main_thread [1528] 392262 pps (393008 pkts in 1001903 usec)
+310.675746 main_thread [1528] 1488130 pps (1491108 pkts in 1002001 usec)
+311.677747 main_thread [1528] 1488126 pps (1491102 pkts in 1002000 usec)
+312.679746 main_thread [1528] 1488130 pps (1491105 pkts in 1001999 usec)
+313.682755 main_thread [1528] 1488133 pps (1492612 pkts in 1003010 usec)
+314.683746 main_thread [1528] 1488129 pps (1489602 pkts in 1000990 usec)
+315.685745 main_thread [1528] 1488130 pps (1491106 pkts in 1002000 usec)
+316.687745 main_thread [1528] 1488126 pps (1491102 pkts in 1002000 usec)
+317.689746 main_thread [1528] 1488134 pps (1491110 pkts in 1002000 usec)
+318.694756 main_thread [1528] 1488126 pps (1495582 pkts in 1005010 usec)
+319.732753 main_thread [1528] 714039 pps (741171 pkts in 1037998 usec)
+^C320.715488 sigint_h [330] received control-C on thread 0x801415000
+320.715528 main_thread [1528] 0 pps (0 pkts in 982775 usec)
+321.778862 main_thread [1528] 0 pps (0 pkts in 1063333 usec)
+Received 14558608 packets, in 11.91 seconds.
+Speed: 1.22 Mpps
+jim@netgate-2220-1:~ % 
+
+And the transmit side:
+jim@netgate-2220-2:~ % sudo pkt-gen -f tx -i igb1 -d 192.168.1.2 -s 192.168.2.2 -i igb1 -f tx -D 00:08:a2:09:3d:d9 -S 00:08:a2:09:6b:93
+820.974649 main [1731] interface is igb1
+820.974703 main [1731] interface is igb1
+820.974748 extract_ip_range [293] range is 192.168.2.2:0 to 192.168.2.2:0
+820.974767 extract_ip_range [293] range is 192.168.1.2:0 to 192.168.1.2:0
+822.297429 main [1931] mapped 334980KB at 0x801600000
+Sending on netmap:igb1: 4 queues, 1 threads and 1 cpus.
+192.168.2.2 -> 192.168.1.2 (00:08:a2:09:6b:93 -> 00:08:a2:09:3d:d9)
+822.297708 main [2015] Sending 512 packets every  0.000000000 s
+822.297720 main [2017] Wait 2 secs for phy reset
+824.353910 main [2019] Ready...
+824.354076 nm_open [517] overriding ifname igb1 ringid 0x0 flags 0x1
+824.354303 sender_body [1087] start, fd 4 main_fd 3
+825.352329 sender_body [1156] drop copy
+825.355834 main_thread [1528] 105040 pps (105204 pkts in 1001558 usec)
+826.356834 main_thread [1528] 1488156 pps (1489644 pkts in 1001000 usec)
+827.358500 main_thread [1528] 1488129 pps (1490608 pkts in 1001666 usec)
+828.359841 main_thread [1528] 1488130 pps (1490126 pkts in 1001341 usec)
+829.360840 main_thread [1528] 1488129 pps (1489617 pkts in 1001000 usec)
+830.421148 main_thread [1528] 1488138 pps (1577883 pkts in 1060307 usec)
+831.479333 main_thread [1528] 1488128 pps (1574716 pkts in 1058186 usec)
+832.480830 main_thread [1528] 1488136 pps (1490362 pkts in 1001496 usec)
+833.482837 main_thread [1528] 1488126 pps (1491113 pkts in 1002007 usec)
+834.484482 main_thread [1528] 1488135 pps (1490583 pkts in 1001645 usec)
+^C835.073005 sigint_h [330] received control-C on thread 0x801415000
+835.073045 sender_body [1185] flush tail 1023 head 1023 on thread 0x801415400
+835.073052 main_thread [1528] 1488115 pps (875860 pkts in 588570 usec)
+835.073083 sender_body [1193] pending tx tail 399 head 343 on ring 0
+835.073166 sender_body [1193] pending tx tail 480 head 343 on ring 0
+835.073203 sender_body [1193] pending tx tail 555 head 343 on ring 0
+835.073238 sender_body [1193] pending tx tail 609 head 343 on ring 0
+835.073273 sender_body [1193] pending tx tail 661 head 343 on ring 0
+836.136339 main_thread [1528] 0 pps (0 pkts in 1063287 usec)
+Sent 14565716 packets, 60 bytes each, in 10.72 seconds.
+Speed: 1.36 Mpps Bandwidth: 652.25 Mbps (raw 913.15 Mbps)
+jim@netgate-2220-2:~ % 
+
+Since igb(4) is used, 1.488Mpps is line-rate.  Note that the 8860 system sees 
+packets gopassting through it, and, more importantly stays perfectly responsive.
+
+> status
+arp_whohas:               0
+arp_reply_sent:           0
+arp_reply:                2
+arp_request:              0
+arp_drop:                 0
+icmp_badaddr:             0
+icmp_echo:                0
+icmp_error:               0
+icmp_drop:                0
+icmp_old:                 0
+icmp_reply:               0
+icmp_unknown:             0
+ip_icmp:                  0
+ip_drop:                  0
+ip_fwd:            46115517
+rx_arp:                   2
+rx_ip:             46115517
+rx_drop:                  0
+tx_drop:            3763667
+tx_pkts:           42351852
+> 
+
