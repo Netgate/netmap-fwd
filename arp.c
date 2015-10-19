@@ -403,24 +403,24 @@ arp_input(struct nm_if *nmif, int ring, char *buf, int len)
 		return (-1);
 	}
 	if (ntohs(ah->ar_hrd) != ARPHRD_ETHER) {
-		DPRINTF("%s: discarding non ethernet packet.\n", __func__);
+		DPRINTF("%s: discarding non-ethernet packet.\n", __func__);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ntohs(ah->ar_pro) != ETHERTYPE_IP) {
-		DPRINTF("%s: unsupported protocol %#04x, discarding the packet.\n",
+		DPRINTF("%s: unsupported protocol %#04x, discarding packet.\n",
 		    __func__, ntohs(ah->ar_pro));
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ah->ar_hln != ETHER_ADDR_LEN) {
-		DPRINTF("%s: unsupported hardware length (%d), discarding the packet.\n",
+		DPRINTF("%s: unsupported hardware length (%d), discarding packet.\n",
 		    __func__, ah->ar_hln);
 		pktcnt.arp_drop++;
 		return (-1);
 	}
 	if (ah->ar_pln != sizeof(in_addr_t)) {
-		DPRINTF("%s: unsupported protocol length (%d), discarding the packet.\n",
+		DPRINTF("%s: unsupported protocol length (%d), discarding packet.\n",
 		    __func__, ah->ar_pln);
 		pktcnt.arp_drop++;
 		return (-1);
