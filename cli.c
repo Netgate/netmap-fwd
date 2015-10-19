@@ -100,6 +100,7 @@ cli_cleanup(void *arg)
 	STAILQ_FOREACH_SAFE(cli, &clis->clis, cli_next, clitmp) {
 		cli_disconnect(cli);
 	}
+
 	/* Clean the cli commands list. */
 	STAILQ_FOREACH_SAFE(cli_cmd, &clis->cli_cmds, cli_cmd_next, cmdtmp) {
 		STAILQ_REMOVE(&clis->cli_cmds, cli_cmd, cli_cmd, cli_cmd_next);
@@ -185,6 +186,7 @@ cli_debug(struct cli *cli, struct cli_args *unused)
 	clis = &clis_g;
 	snprintf(buf, sizeof(buf) - 1, "cli clients: %d\n", clis->nclients);
 	buf[sizeof(buf) - 1] = 0;
+
 	if (cli_obuf_append(cli, buf, strlen(buf)) == -1)
 		return (-1);
 
@@ -235,7 +237,6 @@ cli_help(struct cli *cli, struct cli_args *args)
 static int
 cli_quit(struct cli *cli, struct cli_args *unused)
 {
-
 	/* Return 1 to disconnect. */
 	return (1);
 }
@@ -291,6 +292,7 @@ cli_stat(struct cli *cli, struct cli_args *unused)
 	    pktcnt.icmp_old, pktcnt.icmp_reply, pktcnt.icmp_unknown,
 	    pktcnt.ip_icmp, pktcnt.ip_drop, pktcnt.ip_fwd, pktcnt.rx_arp,
 	    pktcnt.rx_ip, pktcnt.rx_drop, pktcnt.tx_drop, pktcnt.tx_pkts);
+
 	if (cli_obuf_append(cli, buf, strlen(buf)) == -1) {
 		free(buf);
 		return (-1);
@@ -593,14 +595,16 @@ cli_connect(evutil_socket_t socket, short event, void *data)
 	if (net_fd_config(cli->fd,
 	    NET_KEEPALIVE | NET_NO_LINGER | NET_NONBLOCK) == -1) {
 		DPRINTF("debug: drop cli connection, cannot set fd options\n");
-		while (close(cli->fd) != 0 && errno == EINTR);
+		while (close(cli->fd) != 0 && errno == EINTR)
+			;
 		free(cli);
 		return;
 	}
 
 	if (++clis->nclients > clis->maxclients) {
 		DPRINTF("debug: drop cli connection, too many connections\n");
-		while (close(cli->fd) != 0 && errno == EINTR);
+		while (close(cli->fd) != 0 && errno == EINTR)
+			;
 		clis->nclients--;
 		free(cli);
 		return;
