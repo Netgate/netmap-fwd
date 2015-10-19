@@ -50,14 +50,12 @@ static struct event *ev_sigterm = NULL;
 static void
 cleanup_run(int sig, short event, void *data)
 {
-
 	cleanup();
 }
 
 void
 cleanup_init(void)
 {
-
 	STAILQ_INIT(&cln_cbs);
 	ev_sigint = evsignal_new(ev_get_base(), SIGINT, cleanup_run, NULL);
 	evsignal_add(ev_sigint, NULL);
@@ -90,6 +88,7 @@ cleanup(void)
 		event_free(ev_sigint);
 		ev_sigint = NULL;
 	}
+
 	if (ev_sigterm != NULL && evsignal_initialized(ev_sigterm)) {
 		evsignal_del(ev_sigterm);
 		event_free(ev_sigterm);
