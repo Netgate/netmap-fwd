@@ -223,7 +223,7 @@ ip_input(struct nm_if *nmif, int ring, char *buf, int len)
 		return (icmp_input(nmif, buf, len));
 	}
 
-	/* Ask to ether_input to send the packet to host <-> hw bridge. */
+	/* Ask ether_input to send the packet to host <-> hw bridge. */
 	return (1);
 }
 
