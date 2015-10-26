@@ -19,7 +19,7 @@ $(OUT): $(OBJS) $(INCLUDES)
 	$(CC) $(CCFLAGS) -c $<
 
 clean:
-	rm -f *.o *.core $(OUT)
+	rm -f *.o *.core tags $(OUT)
 
 install: $(OUT)
 	install -m 0755 netmap-fwd $(PREFIX)/usr/local/sbin

@@ -25,6 +25,6 @@
  * SUCH DAMAGE.
  */
 
-int in_cksum(char *, int);
+uint16_t in_cksum(char *, int);
 int ip_input(struct nm_if *, int, char *, int);
 int ip_output(struct nm_if *, char *, int);

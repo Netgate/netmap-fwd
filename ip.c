@@ -50,10 +50,12 @@
 extern int nohostring;
 static int ip_id = 1;
 
+#if 0	/** turned off for now while I play with the dpdk IP checksum code */
+
 #define ADDCARRY(x)  (x > 65535 ? x -= 65535 : x)
 #define REDUCE {l_util.l = sum; sum = l_util.s[0] + l_util.s[1]; ADDCARRY(sum);}
 
-int
+inline uint16_t 
 in_cksum(char *buf, int len)
 {
 	register int sum;
@@ -96,6 +98,122 @@ in_cksum(char *buf, int len)
 
 	return (~sum & 0xffff);
 }
+
+#else
+
+/**
+ * 
+ * Code from DPDK librte_net (BSD-licensed)
+ * http://dpdk.org/browse/dpdk/tree/lib/librte_net/rte_ip.h
+ */
+
+/**
+ * @internal Calculate a sum of all words in the buffer.
+ * Helper routine for _raw_cksum().
+ *
+ * @param buf
+ *   Pointer to the buffer.
+ * @param len
+ *   Length of the buffer.
+ * @param sum
+ *   Initial value of the sum.
+ * @return
+ *   sum += Sum of all words in the buffer.
+ */
+static inline uint32_t
+__rte_raw_cksum(const void *buf, size_t len, uint32_t sum)
+{
+        /* workaround gcc strict-aliasing warning */
+        uintptr_t ptr = (uintptr_t)buf;
+        const uint16_t *u16 = (const uint16_t *)ptr;
+
+        while (len >= (sizeof(*u16) * 4)) {
+                sum += u16[0];
+                sum += u16[1];
+                sum += u16[2];
+                sum += u16[3];
+                len -= sizeof(*u16) * 4;
+                u16 += 4;
+        }
+        while (len >= sizeof(*u16)) {
+                sum += *u16;
+                len -= sizeof(*u16);
+                u16 += 1;
+        }
+
+        /* if length is in odd bytes */
+        if (len == 1)
+                sum += *((const uint8_t *)u16);
+
+        return sum;
+}
+
+/**
+ * @internal Reduce a sum to the non-complemented checksum.
+ * Helper routine for the raw_cksum().
+ *
+ * @param sum
+ *   Value of the sum.
+ * @return
+ *   The non-complemented checksum.
+ */
+static inline uint16_t
+__rte_raw_cksum_reduce(uint32_t sum)
+{
+        sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+        sum = ((sum & 0xffff0000) >> 16) + (sum & 0xffff);
+        return (uint16_t)sum;
+}
+
+/**
+ * Process the non-complemented checksum of a buffer.
+ *
+ * @param buf
+ *   Pointer to the buffer.
+ * @param len
+ *   Length of the buffer.
+ * @return
+ *   The non-complemented checksum.
+ */
+static inline uint16_t
+_raw_cksum(const void *buf, size_t len)
+{
+        uint32_t sum;
+
+        sum = __rte_raw_cksum(buf, len, 0);
+        return __rte_raw_cksum_reduce(sum);
+}
+
+#if 0 /* NOT_USED_YET */
+/**
+ * Process the IPv4 checksum of an IPv4 header.
+ *
+ * The checksum field must be set to 0 by the caller.
+ *
+ * @param ipv4_hdr
+ *   The pointer to the contiguous IPv4 header.
+ * @return
+ *   The complemented checksum to set in the IP packet.
+ */
+static inline uint16_t
+ipv4_cksum(const struct ipv4_hdr *ipv4_hdr)
+{
+        uint16_t cksum;
+        cksum = _raw_cksum(ipv4_hdr, sizeof(struct ipv4_hdr));
+        return (cksum == 0xffff) ? cksum : ~cksum;
+}
+#endif
+
+inline uint16_t 
+in_cksum(char *buf, int len)
+{
+	uint16_t cksum;
+	cksum = _raw_cksum(buf, len);
+	return (~cksum & 0xffff);
+}
+
+#endif
+
 
 static int
 ip_fwd(struct nm_if *nmif, char *buf, int len)
