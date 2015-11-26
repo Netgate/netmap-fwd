@@ -4,3 +4,6 @@ Multi-threading
 capsicum
 quagga / bird / bgpd / FIB integration
 better runtime statistics
+VXLAN ?
+GRE ?
+IPSec ?
