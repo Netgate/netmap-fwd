@@ -76,6 +76,7 @@ arp_cli_list(char **buf, int *buflen, int *resid)
 	struct arp_head *arp_head;
 	time_t now;
 
+	err = 0;
 	now = time(NULL);
 	arp_head = &arp_head_g;
 	LIST_FOREACH(arp, &arp_head->arplist, arp_next) {
