@@ -372,9 +372,6 @@ inet_cli_route_parse_addr(struct cli_arg *arg, struct sockaddr_in *addr,
 	struct sockaddr_in *mask, int *mlen)
 {
 	char *p, tmp[32];
-	struct inet *inet;
-
-	inet = &g_inet;
 
 	if (arg == NULL || arg->len > (sizeof(tmp) - 1))
 		return (-2);

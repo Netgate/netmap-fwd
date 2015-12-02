@@ -97,7 +97,6 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 		pktcnt.rx_drop++;
 		return (-1);
 	}
-	err = 0;
 	eh = (struct ether_header *)buf;
 	switch (ntohs(eh->ether_type)) {
 	case ETHERTYPE_ARP:

@@ -523,7 +523,6 @@ if_open(const char *ifname)
 			if (comma == 1)
 				printf(", ");
 			printf("txcsum");
-			comma = 1;
 		}
 		printf(" on physical interface.\n");
 		if (if_setcaps(nmif, -nmif->nm_if_dis_caps) == -1)
