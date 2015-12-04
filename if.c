@@ -25,6 +25,7 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/param.h>
 #include <sys/ioctl.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -62,6 +63,19 @@
 "\10VLAN_HWCSUM\11TSO4\12TSO6\13LRO\14WOL_UCAST\15WOL_MCAST\16WOL_MAGIC" \
 "\17TOE4\20TOE6\21VLAN_HWFILTER\23VLAN_HWTSO\24LINKSTATE\25NETMAP" \
 "\26RXCSUM_IPV6\27TXCSUM_IPV6"
+
+struct discaps {
+	int cap;
+	const char *label;
+};
+
+static struct discaps discaps[] = {
+	{ IFCAP_RXCSUM,	"rxcsum" },
+	{ IFCAP_TXCSUM,	"txcsum" },
+	{ IFCAP_TSO4,	"tso4" },
+	{ IFCAP_TSO6,	"tso6" },
+	{ IFCAP_LRO,	"lro" },
+};
 
 static STAILQ_HEAD(nm_ifs_, nm_if) nm_ifs;
 
@@ -508,21 +522,20 @@ if_open(const char *ifname)
 	if (nmif->nm_if_dl.sdl_type != IFT_ETHER)
 		return (0);
 
-	if (nmif->nm_if_caps & IFCAP_RXCSUM)
-		nmif->nm_if_dis_caps |= IFCAP_RXCSUM;
-	if (nmif->nm_if_caps & IFCAP_TXCSUM)
-		nmif->nm_if_dis_caps |= IFCAP_TXCSUM;
+	/* Disable unwanted hw features. */
+	for (i = 0; i < nitems(discaps); i++)
+		if (nmif->nm_if_caps & discaps[i].cap)
+			nmif->nm_if_dis_caps |= discaps[i].cap;
 	if (nmif->nm_if_dis_caps != 0) {
 		comma = 0;
 		printf("disabling ");
-		if (nmif->nm_if_dis_caps & IFCAP_RXCSUM) {
-			printf("rxcsum");
-			comma = 1;
-		}
-		if (nmif->nm_if_dis_caps & IFCAP_TXCSUM) {
+		for (i = 0; i < nitems(discaps); i++) {
+			if ((nmif->nm_if_dis_caps & discaps[i].cap) == 0)
+				continue;
 			if (comma == 1)
 				printf(", ");
-			printf("txcsum");
+			printf("%s", discaps[i].label);
+			comma = 1;
 		}
 		printf(" on physical interface.\n");
 		if (if_setcaps(nmif, -nmif->nm_if_dis_caps) == -1)
