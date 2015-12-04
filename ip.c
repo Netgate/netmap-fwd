@@ -254,6 +254,9 @@ ip_fwd(struct nm_if *nmif, char *buf, int len)
 		err = ether_output(rt->nmif, &ip->ip_dst, NULL, ETHERTYPE_IP,
 		    buf, len);
 	switch (err) {
+	case 0:
+		pktcnt.ip_fwd++;
+		break;
 	case EWOULDBLOCK:
 		/* Add packet to FIFO. */
 //printf("%s: enqueue packet\n", __func__);
@@ -262,8 +265,6 @@ ip_fwd(struct nm_if *nmif, char *buf, int len)
 		icmp_error(nmif, buf, len, ICMP_UNREACH, ICMP_UNREACH_HOST);
 		return (0);
 	}
-
-	pktcnt.ip_fwd++;
 
 	return (0);
 }
