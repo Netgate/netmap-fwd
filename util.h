@@ -26,10 +26,11 @@
  */
 
 #define	BUFSZ		256
-#define	DPRINTF(_fmt, args...)		if (verbose) printf(_fmt, ## args)
+#define	DPRINTF(_fmt, args...)		if (verbose) dprintf(_fmt, ## args)
 
 extern int verbose;
 
+int dprintf(const char *, ...);
 int printf_buf(char **, int *, int *, const char *, ...);
 void printb(char **, int *, int *, const char *, unsigned, const char *);
 int pidfile_create(const char *);
