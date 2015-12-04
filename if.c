@@ -483,7 +483,7 @@ if_init(void)
 int
 if_open(const char *ifname)
 {
-	int comma, err;
+	int comma, err, i;
 	struct nm_if *nmif;
 
 	/* Check if interface is already open. */
