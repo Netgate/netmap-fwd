@@ -52,6 +52,7 @@
 #define	PREFIX		"/usr/local/etc/"
 #endif
 
+int burst = 1024;
 int nohostring = 0;
 int verbose = 0;
 struct pkt_cnt pktcnt;
@@ -61,7 +62,8 @@ usage(void)
 {
 
 	printf("usage:\n");
-	printf("netmap-fwd [-H] [-f netmap-fwd.conf] [-v] if1 [if2] [ifN]\n");
+	printf("netmap-fwd [-b 1024] [-H] [-f netmap-fwd.conf] [-v] if1 [if2] [ifN]\n");
+	printf("\t-b\tmaximum number of packets processed at each read event\n");
 	printf("\t-H\tdo not open the host ring\n");
 	printf("\t-f\tset the path to netmap-fwd config file\n");
 	printf("\t-v\tverbose\n");
@@ -76,8 +78,13 @@ main(int argc, char **argv)
 	int ch, err, ifs;
 
 	config = NULL;
-	while ((ch = getopt(argc, argv, "Hf:v")) != -1) {
+	while ((ch = getopt(argc, argv, "b:Hf:v")) != -1) {
 		switch (ch) {
+		case 'b':
+		burst = atoi(optarg);
+			if (burst == 0)
+				burst = 1024;
+			break;
 		case 'H':
 			nohostring = 1;
 			break;

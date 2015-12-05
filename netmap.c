@@ -44,13 +44,14 @@
 #include "netmap.h"
 #include "util.h"
 
+extern int burst;
 extern int nohostring;
 
 static void
 netmap_read(evutil_socket_t fd, short event, void *data)
 {
 	char *buf;
-	int err, i, rx_rings;
+	int err, i, pkts, rx_rings;
 	struct netmap_if *ifp;
 	struct netmap_ring *nring;
 	struct nm_if *nmif;
@@ -60,6 +61,7 @@ netmap_read(evutil_socket_t fd, short event, void *data)
 	rx_rings = ifp->ni_rx_rings;
 	if (!nohostring)
 		rx_rings++;
+	pkts = 0;
 	for (i = 0; i < rx_rings; i++) {
 		nring = NETMAP_RXRING(ifp, i);
 		while (!nm_ring_empty(nring)) {
@@ -70,8 +72,11 @@ netmap_read(evutil_socket_t fd, short event, void *data)
 				ether_bridge(nmif, i, buf,
 				    NETMAP_SLOT_LEN(nring));
 			NETMAP_RING_NEXT(nring);
+			if (++pkts == burst)
+				goto done;
 		}
 	}
+done:
 	if_netmap_txsync();
 }
 
