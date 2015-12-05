@@ -49,7 +49,7 @@
 extern int nohostring;
 extern int verbose;
 
-void
+int
 ether_bridge(struct nm_if *nmif, int ring, char *inbuf, int len)
 {
 	char *buf;
@@ -59,6 +59,7 @@ ether_bridge(struct nm_if *nmif, int ring, char *inbuf, int len)
 
 	parentif = NETMAP_PARENTIF(nmif);
 	ifp = parentif->nm_if_ifp;
+printf("%s: %s: tx ring: %d rings: %d\n", __func__, nmif->nm_if_name, ring, ifp->ni_tx_rings);
 	if (NETMAP_HOST_RING(parentif, ring))
 		nring = netmap_hw_tx_ring(ifp);
 	else
@@ -70,7 +71,7 @@ ether_bridge(struct nm_if *nmif, int ring, char *inbuf, int len)
 		    __func__, nmif->nm_if_name);
 		parentif->nm_if_txsync = 1;
 		pktcnt.tx_drop++;
-		return;
+		return (-1);
 	}
 	/* Copy the payload. */
 	memcpy(buf, inbuf, len);
@@ -82,6 +83,8 @@ ether_bridge(struct nm_if *nmif, int ring, char *inbuf, int len)
 
 	pktcnt.tx_pkts++;
 	parentif->nm_if_txsync = 1;
+
+	return (0);
 }
 
 int
@@ -135,8 +138,7 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 			evl = (struct ether_vlan_header *)buf;
 			evl->evl_encap_proto = htons(ETHERTYPE_VLAN);
 			evl->evl_tag = htons(vlan->nmif->nm_if_vtag);
-			ether_bridge(vlan->nmif, ring, buf, len);
-			return (0);
+			return (ether_bridge(vlan->nmif, ring, buf, len));
 		}
 		break;
 	default:

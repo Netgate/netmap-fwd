@@ -27,7 +27,7 @@
 
 struct nm_if;
 
-void ether_bridge(struct nm_if *, int, char *, int);
+int ether_bridge(struct nm_if *, int, char *, int);
 int ether_input(struct nm_if *, int, char *, int);
 int ether_output(struct nm_if *, struct in_addr *, struct ether_addr *,
 	unsigned short, char *, int);

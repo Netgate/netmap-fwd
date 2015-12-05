@@ -69,10 +69,10 @@ netmap_read(evutil_socket_t fd, short event, void *data)
 			err = ether_input(nmif, i, buf, NETMAP_SLOT_LEN(nring));
 			/* Send the packet to hw <-> host bridge. */
 			if (!nohostring && err == 1)
-				ether_bridge(nmif, i, buf,
+				err = ether_bridge(nmif, i, buf,
 				    NETMAP_SLOT_LEN(nring));
 			NETMAP_RING_NEXT(nring);
-			if (++pkts == burst)
+			if (err < 0 || ++pkts == burst)
 				goto done;
 		}
 	}
