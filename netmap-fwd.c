@@ -81,7 +81,7 @@ main(int argc, char **argv)
 	while ((ch = getopt(argc, argv, "b:Hf:v")) != -1) {
 		switch (ch) {
 		case 'b':
-		burst = atoi(optarg);
+			burst = atoi(optarg);
 			if (burst == 0)
 				burst = 1024;
 			break;
