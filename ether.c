@@ -93,7 +93,8 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 	struct nm_if_vlan *vlan;
 
 	if (len < ETHER_HDR_LEN) {
-		DPRINTF("%s: discarding packet, too short.\n", __func__);
+		DPRINTF("%s: %s: discarding packet, too short.\n",
+		    __func__, nmif->nm_if_name);
 		pktcnt.rx_drop++;
 		return (-1);
 	}
@@ -112,8 +113,8 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 	case ETHERTYPE_VLAN:
 		//pktcnt.rx_vlan++;
 		if (len < ETHER_VLAN_ENCAP_LEN) {
-			DPRINTF("%s: discarding vlan packet, too short.\n",
-			    __func__);
+			DPRINTF("%s: %s: discarding vlan packet, too short.\n",
+			    __func__, nmif->nm_if_name);
 			pktcnt.rx_drop++;
 			return (-1);
 		}
@@ -121,8 +122,8 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 		vlan = if_find_vlan(nmif, ntohs(evl->evl_tag));
 		if (vlan == NULL) {
 			pktcnt.rx_drop++;
-			DPRINTF("%s: unknown vlan tag %d, discanding packet.\n",
-			    __func__, ntohs(evl->evl_tag));
+			DPRINTF("%s: %s: unknown vlan tag %d, discanding packet.\n",
+			    __func__, nmif->nm_if_name, ntohs(evl->evl_tag));
 			return (-1);
 		}
 		memmove(buf + ETHER_VLAN_ENCAP_LEN, buf, ETHER_ADDR_LEN * 2);
@@ -140,8 +141,8 @@ ether_input(struct nm_if *nmif, int ring, char *buf, int len)
 		break;
 	default:
 		pktcnt.rx_drop++;
-		DPRINTF("%s: protocol %#04x not supported, discanding packet.\n",
-		    __func__, ntohs(eh->ether_type));
+		DPRINTF("%s: %s: protocol %#04x not supported, discanding packet.\n",
+		    __func__, nmif->nm_if_name, ntohs(eh->ether_type));
 		err = -1;
 	}
 
