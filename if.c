@@ -79,6 +79,20 @@ static struct discaps discaps[] = {
 
 static STAILQ_HEAD(nm_ifs_, nm_if) nm_ifs;
 
+static const char *
+if_get_name(struct nm_if *nmif)
+{
+	char *p;
+
+	if (nmif->nm_if_vale) {
+		p = strchr(nmif->nm_if_name, ':');
+		if (p)
+			return (nmif->nm_if_name + (p - nmif->nm_if_name) + 1);
+	}
+
+	return (nmif->nm_if_name);
+}
+
 static int
 if_setcaps(struct nm_if *nmif, int value)
 {
@@ -91,7 +105,7 @@ if_setcaps(struct nm_if *nmif, int value)
 		return (-1);
 	}
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, nmif->nm_if_name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, if_get_name(nmif), sizeof(ifr.ifr_name));
 	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
 		perror("ioctl");
 		goto error;
@@ -134,7 +148,7 @@ if_getdata(struct nm_if *nmif)
 		return (-1);
 	}
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, nmif->nm_if_name, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, if_get_name(nmif), sizeof(ifr.ifr_name));
 	if (ioctl(s, SIOCGIFFLAGS, &ifr) == -1) {
 		perror("ioctl");
 		goto error;
@@ -188,6 +202,8 @@ if_add(const char *ifname)
 	nmif->nm_if_fd = -1;
 	STAILQ_INIT(&nmif->nm_if_vlans);
 	strlcpy(nmif->nm_if_name, ifname, sizeof(nmif->nm_if_name));
+	if (strncmp(ifname, "vale", 4) == 0)
+		nmif->nm_if_vale = 1;
 	STAILQ_INSERT_TAIL(&nm_ifs, nmif, nm_if_next);
 
 	return (nmif);
@@ -404,6 +420,7 @@ if_check_vlan(struct nm_if *nmif)
 static int
 if_getaddrs(struct nm_if *nmif)
 {
+	const char *ifname;
 	struct ifaddrs *ifa, *ifaddrs;
 	struct sockaddr *sa;
 	struct sockaddr_dl *sdl;
@@ -412,9 +429,10 @@ if_getaddrs(struct nm_if *nmif)
 		perror("getifaddrs");
 		return (-1);
 	}
+	ifname = if_get_name(nmif);
 	/* Get the link layer address for this interface first. */
 	for (ifa = ifaddrs; ifa; ifa = ifa->ifa_next) {
-		if (strcmp(ifa->ifa_name, nmif->nm_if_name) != 0)
+		if (strcmp(ifa->ifa_name, ifname) != 0)
 			continue;
 		if ((sa = ifa->ifa_addr) == NULL)
 			continue;
@@ -437,7 +455,7 @@ if_getaddrs(struct nm_if *nmif)
 	}
 	/* And now the inet addresses. */
 	for (ifa = ifaddrs; ifa; ifa = ifa->ifa_next) {
-		if (strcmp(ifa->ifa_name, nmif->nm_if_name) != 0)
+		if (strcmp(ifa->ifa_name, ifname) != 0)
 			continue;
 		if ((sa = ifa->ifa_addr) == NULL)
 			continue;
@@ -542,7 +560,8 @@ if_open(const char *ifname)
 			return (-1);
 	}
 
-	printf("switching interface %s to netmap mode.\n", nmif->nm_if_name);
+	printf("switching interface %s to netmap%s mode.\n",
+	    nmif->nm_if_name, (nmif->nm_if_vale ? "+vale": ""));
 	if (netmap_open(nmif) != 0) {
 		if_del(nmif);
 		return (-1);

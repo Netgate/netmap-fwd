@@ -53,6 +53,7 @@ struct nm_if {
 	int			nm_if_mtu;
 	int			nm_if_naddrs;
 	int			nm_if_txsync;
+	int			nm_if_vale;
 	int			nm_if_vtag;
 	int			nm_if_dis_caps;
 	size_t			nm_if_memsize;

@@ -59,7 +59,7 @@ netmap_read(evutil_socket_t fd, short event, void *data)
 	nmif = (struct nm_if *)data;
 	ifp = nmif->nm_if_ifp;
 	rx_rings = ifp->ni_rx_rings;
-	if (!nohostring)
+	if (!nohostring && !nmif->nm_if_vale)
 		rx_rings++;
 	pkts = 0;
 	for (i = 0; i < rx_rings; i++) {
@@ -80,10 +80,68 @@ done:
 	if_netmap_txsync();
 }
 
+static int
+netmap_vale_cmd(const char *ifname, uint16_t cmd)
+{
+	int err, fd;
+	struct nmreq nmreq;
+
+	fd = open("/dev/netmap", O_RDWR);
+	if (fd == -1) {
+		perror("open");
+		return (-1);
+	}
+	memset(&nmreq, 0, sizeof(nmreq));
+	strlcpy(nmreq.nr_name, ifname, sizeof(nmreq.nr_name));
+	nmreq.nr_version = NETMAP_API;
+	nmreq.nr_cmd = cmd;
+	nmreq.nr_flags = NR_REG_ALL_NIC;
+	err = ioctl(fd, NIOCREGIF, &nmreq);
+	if (err == -1)
+		perror("ioctl");
+	close(fd);
+
+	return (err);
+}
+
+static int
+netmap_vale_attach(struct nm_if *nmif)
+{
+
+	return (netmap_vale_cmd(nmif->nm_if_name, NETMAP_BDG_ATTACH));
+}
+
+static int
+netmap_vale_detach(struct nm_if *nmif)
+{
+
+	return (netmap_vale_cmd(nmif->nm_if_name, NETMAP_BDG_DETACH));
+}
+
 int
 netmap_open(struct nm_if *nmif)
 {
+	char ifbuf[IF_NAMESIZE], *p;
+	const char *ifname;
+	int len;
 	struct nmreq nmreq;
+
+	if (nmif->nm_if_vale) {
+		/* Attach hw interface to VALE switch. */
+		if (netmap_vale_attach(nmif) != 0) {
+			netmap_close(nmif);
+			return (-1);
+		}
+		/* Attach netmap-fwd to VALE switch. */
+		p = strchr(nmif->nm_if_name, ':');
+		len = 0;
+		if (p)
+			len = p - nmif->nm_if_name;
+		memset(ifbuf, 0, sizeof(ifbuf));
+		snprintf(ifbuf, sizeof(ifbuf) - 1, "%.*s:nmfwd0", len, nmif->nm_if_name);
+		ifname = ifbuf;
+	} else
+		ifname = nmif->nm_if_name;
 
 	nmif->nm_if_fd = open("/dev/netmap", O_RDWR);
 	if (nmif->nm_if_fd == -1) {
@@ -92,13 +150,14 @@ netmap_open(struct nm_if *nmif)
 	}
 
 	memset(&nmreq, 0, sizeof(nmreq));
-	strcpy(nmreq.nr_name, nmif->nm_if_name);
+	strlcpy(nmreq.nr_name, ifname, sizeof(nmreq.nr_name));
 	nmreq.nr_version = NETMAP_API;
-	if (nohostring)
+	if (nohostring || nmif->nm_if_vale)
 		nmreq.nr_flags = NR_REG_ALL_NIC;
 	else
 		nmreq.nr_flags = NR_REG_NIC_SW;
-
+	if (nmif->nm_if_vale)
+		nmreq.nr_tx_rings = nmreq.nr_rx_rings = 4;
 	if (ioctl(nmif->nm_if_fd, NIOCREGIF, &nmreq) == -1) {
 		perror("ioctl");
 		netmap_close(nmif);
@@ -152,6 +211,10 @@ netmap_close(struct nm_if *nmif)
 		return (-1);
 	}
 	nmif->nm_if_fd = -1;
+
+	/* Detach hw interface from VALE switch. */
+	if (nmif->nm_if_vale)
+		netmap_vale_detach(nmif);
 
 	return (0);
 }
