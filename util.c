@@ -43,7 +43,7 @@ int
 dprintf(const char *fmt, ...)
 {
 	char tmp[MAXBUFSZ];
-	int len;
+	int expired, len;
 	static char lastbuf[MAXBUFSZ];
 	static int lastcnt = 0;
 	static struct timespec last;
@@ -54,21 +54,25 @@ dprintf(const char *fmt, ...)
 	vsnprintf(tmp, sizeof(tmp) - 1, fmt, ap);
 	tmp[sizeof(tmp) - 1] = 0;
 	va_end(ap);
+	clock_gettime(CLOCK_MONOTONIC_FAST, &now);
+	expired = 0;
 	if (strcmp(tmp, lastbuf) == 0) {
 		lastcnt++;
-		return (0);
+		if ((now.tv_sec - last.tv_sec) < 5)
+			return (0);
+		expired = 1;
 	}
-	clock_gettime(CLOCK_MONOTONIC_FAST, &now);
-	if (lastcnt > 0 && (last.tv_sec == 0 ||
-	    (now.tv_sec - last.tv_sec) >= 5)) {
+	if (lastcnt > 0) {
 		len = strlen(lastbuf);
 		if (lastbuf[len - 1] == '\n')
 			lastbuf[len - 1] = '\0';
-		printf("%s (repeated %d times)\n", lastbuf, lastcnt);
+		len = printf("%s (repeated %d times)\n", lastbuf, lastcnt);
 		lastcnt = 0;
 	}
 	last.tv_sec = now.tv_sec;
 	strncpy(lastbuf, tmp, sizeof(lastbuf));
+	if (expired)
+		return (len);
 	va_start(ap, fmt);
 	len = vprintf(fmt, ap);
 	va_end(ap);
