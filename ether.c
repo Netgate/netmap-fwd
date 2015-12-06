@@ -59,7 +59,6 @@ ether_bridge(struct nm_if *nmif, int ring, char *inbuf, int len)
 
 	parentif = NETMAP_PARENTIF(nmif);
 	ifp = parentif->nm_if_ifp;
-printf("%s: %s: tx ring: %d rings: %d\n", __func__, nmif->nm_if_name, ring, ifp->ni_tx_rings);
 	if (NETMAP_HOST_RING(parentif, ring))
 		nring = netmap_hw_tx_ring(ifp);
 	else
