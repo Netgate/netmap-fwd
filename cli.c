@@ -500,7 +500,7 @@ cli_ev_read(struct cli *cli)
 	int more;
 	ssize_t i, len;
 
-	if (cli->resid == MAXCLIBUF) {
+	if (cli->resid >= MAXCLIBUF) {
 		DPRINTF(
 		    "dropping cli connection - unsupported cli command (%d)\n",
 		    cli->fd);
