@@ -49,6 +49,13 @@ ribsync_init(void){
     return 0;
 }
 
+void
+dump_sockaddr_in(struct sockaddr_in *addr)
+{
+    printf("  sin_family: %d \n",addr->sin_family);
+    printf("  sin_addr: %s\n",inet_ntoa(addr->sin_addr));
+}
+
 struct sockaddr_route {
     struct sockaddr_in route_dst;
     struct sockaddr_in route_mask;
@@ -91,9 +98,9 @@ parse_rt_addr(const union rtsocket_msg *msg_data, size_t len, int addrs_mask, si
         i++;
     }
     
-    printf("R:%s", inet_ntoa(rt_addr.route_dst.sin_addr));
+    printf("%s", inet_ntoa(rt_addr.route_dst.sin_addr));
     printf("/%s", inet_ntoa(rt_addr.route_mask.sin_addr));
-    printf("->%s\n", inet_ntoa(rt_addr.route_gw.sin_addr));
+    printf(" -> %s", inet_ntoa(rt_addr.route_gw.sin_addr));
         
     return rt_addr;
 }
@@ -122,21 +129,24 @@ ribsync_ev_data(evutil_socket_t socket, short event, void *data) {
         return;
     }
     
-    printf("Received %d bytes. Version %d, Type %#x, Len %d, Err: %d\n", r1,
+    /*printf("Received %d bytes. Version %d, Type %#x, Len %d\n", r1,
         recv_data.rtm.rtm_version,
         recv_data.rtm.rtm_type,
-        recv_data.rtm.rtm_msglen,
-        recv_data.rtm.rtm_errno
-        );
+        recv_data.rtm.rtm_msglen
+    );*/
 
+    int rt_status=0;
     switch (recv_data.rtm.rtm_type) {
         case RTM_ADD:
             printf("Add route: ");
             rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr), recv_data.rtm.rtm_flags);
+            rt_status = inet_route_add_ipv4(rt_addr.route_dst, rt_addr.route_mask, rt_addr.route_gw, recv_data.rtm.rtm_flags);
             break;
         case RTM_DELETE:
-            printf("Remove route: ");
+            printf("Del route: ");
             rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr), recv_data.rtm.rtm_flags);
+            rt_status = inet_route_del_ipv4(rt_addr.route_dst, rt_addr.route_mask, rt_addr.route_gw, recv_data.rtm.rtm_flags);
+            
             break;
         // case RTM_CHANGE:
         // case RTM_NEWADDR:
@@ -144,6 +154,18 @@ ribsync_ev_data(evutil_socket_t socket, short event, void *data) {
         // case RTM_IFINFO:
         // case RTM_IFANNOUNCE:
         }
+    if( -1 == rt_status) {
+        printf("[DBG] Route dst\n");
+        dump_sockaddr_in(&rt_addr.route_dst);
+
+        printf("[DBG] Route netmask\n");
+        dump_sockaddr_in(&rt_addr.route_mask);
+
+        printf("[DBG] Route gateway\n");
+        dump_sockaddr_in(&rt_addr.route_gw);
+        printf("\n");
+    }
+    fflush(stdout);
 }
 
 int ribsync_open(void) {

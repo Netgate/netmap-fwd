@@ -680,3 +680,98 @@ inet_cli_route(struct cli *cli, struct cli_args *args)
 
 	return (err);
 }
+
+/*
+ * Calculate prefix length of a netmask passed as a sockaddr ipv4 structure
+ */
+static int
+calc_masklen_ipv4(struct sockaddr_in *addr)
+{
+    int prefixLength = 0;
+    uint32_t m = ntohl( *(uint32_t*) &addr->sin_addr);
+    while (m & 0x80000000) {
+        prefixLength++;
+        m = m << 1;
+    }
+
+    if(prefixLength == 0) {
+        // This is a /32 - host
+        return 32;
+    }
+    return prefixLength;
+}
+
+int
+inet_route_add_ipv4(
+    struct sockaddr_in addr_net,
+    struct sockaddr_in addr_mask,
+    struct sockaddr_in addr_gw,
+    int flags)
+{
+    struct inet *inet;
+    inet = &g_inet;
+    struct inet_rtentry *rt;
+    struct radix_node *rn;
+
+    if (calc_masklen_ipv4(&addr_mask) < 32) {
+        addr_net.sin_addr.s_addr &= addr_mask.sin_addr.s_addr;
+    }
+
+    rn = inet->rnh->rnh_matchaddr( &addr_gw, inet->rnh);
+    if (rn == NULL || (rn->rn_flags & RNF_ROOT) != 0) {
+        if(rn == NULL) {
+            printf("\n[DBG]-add- rn is null\n");
+        }
+        printf("\n[WARN]-add- Network is unreachable\n");
+        return -1;
+    }
+
+    rt = (struct inet_rtentry *)rn;
+    if (inet_addroute(&addr_net, &addr_gw, &addr_mask, flags, rt->nmif) != 0) {
+        printf ("\n[WARN]-add- Cannot add route..(allready in table?)\n");
+        return -1;
+    }
+    printf("\t -OK-\n");
+    return 0;
+}
+
+int
+inet_route_del_ipv4(
+    struct sockaddr_in addr_net,
+    struct sockaddr_in addr_mask,
+    struct sockaddr_in addr_gw, int flags)
+{
+
+    struct inet *inet;
+    inet = &g_inet;
+    struct inet_rtentry *rt;
+    struct radix_node *rn;
+
+    if ( calc_masklen_ipv4(&addr_mask) < 32) {
+        addr_net.sin_addr.s_addr &= addr_mask.sin_addr.s_addr;
+    }
+
+    rn = inet->rnh->rnh_lookup(&addr_net, &addr_mask, inet->rnh);
+    if (rn == NULL || (rn->rn_flags & RNF_ROOT) != 0){
+        printf( "\n[WARN]-del- Route has not been found\n");
+        return -1;
+    }
+
+    rt = (struct inet_rtentry *)rn;
+    /* Check if the gateway address matches. */
+    if ( rt->gw.sin_addr.s_addr != addr_gw.sin_addr.s_addr) {
+        printf( "\n[WARN]-del- Route has not been found (gw not match)\n\n");
+        return -1;
+    }
+
+    rn = inet->rnh->rnh_deladdr(&addr_net, &addr_mask, inet->rnh);
+    if (rn == NULL) {
+        printf( "\n[WARN]-del- Route could not be deleted\n");
+        return -1;
+    }
+
+    rt = (struct inet_rtentry *)rn;
+    free(rt);
+    printf("\t -OK-\n");
+    return 0;
+}

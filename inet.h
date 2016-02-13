@@ -66,3 +66,6 @@ void inet_addr_if_free(struct nm_if *);
 struct inet_addr *inet_get_if_addr(struct nm_if *);
 struct inet_addr *inet_our_addr(struct in_addr *);
 struct inet_addr *inet_our_broadcast(struct in_addr *);
+
+int inet_route_add_ipv4( struct sockaddr_in, struct sockaddr_in, struct sockaddr_in, int);
+int inet_route_del_ipv4( struct sockaddr_in, struct sockaddr_in, struct sockaddr_in, int);
