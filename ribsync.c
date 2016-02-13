@@ -78,8 +78,15 @@ parse_rt_addr(const union rtsocket_msg *msg_data, size_t len, int addrs_mask, si
                 rt_addr.route_mask = *(const struct sockaddr_in*)sa;
             }
             
-            // jump to next socketaddr stuct
-            ppos += sa->sa_len;
+            // jump to next socketaddr struct
+            size_t diff = sa->sa_len;
+            if (!diff) {
+                diff = sizeof(long);
+            }
+            ppos += diff;
+            if (diff & (sizeof(long) - 1)) {
+                ppos += sizeof(long) - (diff & (sizeof(long) - 1));
+            }
         }
         i++;
     }
