@@ -46,6 +46,7 @@
 #include "event.h"
 #include "if.h"
 #include "inet.h"
+#include "ribsync.h"
 #include "util.h"
 
 #ifndef PREFIX
@@ -129,6 +130,7 @@ main(int argc, char **argv)
 		printf("error: cannot initialize the inet data structures.\n");
 		exit(1);
 	}
+	ribsync_init();
 
 	while (argc > 0) {
 		ifn = argv[0];
@@ -161,6 +163,12 @@ main(int argc, char **argv)
 		cleanup();
 		exit(1);
 	}
+    if (ribsync_open() == -1) {
+        printf("cannot open the kernel PF_ROUTE socket.\n");
+        cleanup();
+        exit(1);
+    }
+
 	event_base_dispatch(ev_get_base()); 
 	cleanup();
 

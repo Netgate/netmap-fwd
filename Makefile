@@ -1,9 +1,9 @@
 
 OUT=netmap-fwd
 OBJS=arp.o cleanup.o cli.o config.o ether.o event.o icmp.o if.o inet.o
-OBJS+=ip.o net.o netmap.o netmap-fwd.o radix.o util.o
+OBJS+=ip.o net.o netmap.o netmap-fwd.o radix.o util.o ribsync.o
 INCLUDES=arp.h cleanup.h cli.h config.h counters.h ether.h event.h icmp.h
-INCLUDES+=if.h inet.h ip.h net.h netmap.h radix.h util.h
+INCLUDES+=if.h inet.h ip.h net.h netmap.h radix.h util.h ribsync.h
 
 LDFLAGS=-L/usr/local/lib -levent -lutil -lucl
 CCFLAGS=-O2 -fPIC -g -Wall -Wshadow -Wcast-qual -Wcast-align -Wwrite-strings
