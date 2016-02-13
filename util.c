@@ -37,7 +37,9 @@
 
 #include "util.h"
 
-#define	MAXBUFSZ	(BUFSZ * 1024)
+// default was 256 * 1024 which is enough fo 70 routes
+// 256 * 131072 should be enough for more than ~1.1 mil
+#define	MAXBUFSZ	(BUFSZ * 131072)
 
 int
 dprintf(const char *fmt, ...)

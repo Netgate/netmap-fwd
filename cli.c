@@ -48,7 +48,7 @@
 #include "util.h"
 
 #define	CMDMAXSZ		64
-#define	MAXCLIBUF		4096
+#define	MAXCLIBUF		16777216
 
 /* CLI client data. */
 struct cli {
@@ -500,7 +500,7 @@ cli_ev_read(struct cli *cli)
 	int more;
 	ssize_t i, len;
 
-	if (cli->resid == MAXCLIBUF) {
+	if (cli->resid >= MAXCLIBUF) {
 		DPRINTF(
 		    "dropping cli connection - unsupported cli command (%d)\n",
 		    cli->fd);
