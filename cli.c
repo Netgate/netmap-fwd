@@ -48,7 +48,7 @@
 #include "util.h"
 
 #define	CMDMAXSZ		64
-#define	MAXCLIBUF		4096
+#define	MAXCLIBUF		16777216
 
 /* CLI client data. */
 struct cli {
