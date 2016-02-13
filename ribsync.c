@@ -41,7 +41,8 @@ ribsync_cli_stats(struct cli *cli, struct cli_args *args)
 }
 
 int
-ribsync_init(void){
+ribsync_init(void)
+{
     /* Register the ribsync cli command. */
     cli_cmd_add("ribsync", "ribsync - monitors kernel routing table\n", ribsync_cli_stats, NULL);
     
@@ -64,7 +65,7 @@ struct sockaddr_route {
 };
 
 static struct sockaddr_route
-parse_rt_addr(const union rtsocket_msg *msg_data, size_t len, int addrs_mask, size_t ppos, int rt_flags)
+parse_rt_addr(const union rtsocket_msg *msg_data, size_t len, int addrs_mask, size_t ppos)
 {
     size_t i=0;
     int maskvec[] = {RTA_DST, RTA_GATEWAY, RTA_NETMASK, RTA_GENMASK, RTA_IFP, RTA_IFA, RTA_AUTHOR, RTA_BRD};
@@ -106,8 +107,8 @@ parse_rt_addr(const union rtsocket_msg *msg_data, size_t len, int addrs_mask, si
 }
 
 static void
-ribsync_ev_data(evutil_socket_t socket, short event, void *data) {
-    
+ribsync_ev_data(evutil_socket_t socket, short event, void *data)
+{
     union rtsocket_msg recv_data;
     struct sockaddr_route rt_addr;
     
@@ -139,12 +140,12 @@ ribsync_ev_data(evutil_socket_t socket, short event, void *data) {
     switch (recv_data.rtm.rtm_type) {
         case RTM_ADD:
             printf("Add route: ");
-            rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr), recv_data.rtm.rtm_flags);
+            rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr));
             rt_status = inet_route_add_ipv4(rt_addr.route_dst, rt_addr.route_mask, rt_addr.route_gw, recv_data.rtm.rtm_flags);
             break;
         case RTM_DELETE:
             printf("Del route: ");
-            rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr), recv_data.rtm.rtm_flags);
+            rt_addr = parse_rt_addr(&recv_data, r1,recv_data.rtm.rtm_addrs, sizeof(struct rt_msghdr));
             rt_status = inet_route_del_ipv4(rt_addr.route_dst, rt_addr.route_mask, rt_addr.route_gw, recv_data.rtm.rtm_flags);
             
             break;
@@ -168,8 +169,8 @@ ribsync_ev_data(evutil_socket_t socket, short event, void *data) {
     fflush(stdout);
 }
 
-int ribsync_open(void) {
-    
+int ribsync_open(void)
+{
     int rt_socket = socket(PF_ROUTE, SOCK_RAW, AF_UNSPEC);
     if (-1 == rt_socket) {
         return -1;
